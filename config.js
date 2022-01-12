@@ -1,12 +1,14 @@
+require('dotenv').config();
+
 /**
  * Web server port
  */
-const SERVER_PORT = 3005;
+const SERVER_PORT = process.env.SERVER_PORT || 3001;
 
 /**
  * Session settings
  */
-const SESSION_SECRET = 'Z>lFs46=B)$u(742x5(iEH6k&m';
+const SESSION_SECRET = process.env.SESSION_SECRET;
 
 /**
  * MongoDB configuration settings
@@ -18,13 +20,13 @@ const SESSION_SECRET = 'Z>lFs46=B)$u(742x5(iEH6k&m';
  */
 
 //  mongodb+srv://tienbm:Minhtie98@cluster0.girxn.mongodb.net/test
-const CONNECTION_TYPE = 'mongodb+srv';
-const DB_USERNAME = 'tienbm';
-const DB_PASSWORD = 'Minhtie98';
-const DB_HOST = 'cluster0.girxn.mongodb.net';
-const DB_PORT = '';
-const DB_NAME = 'quizGameDB';
-const DB_QUERY_PARAMS = '';
+const CONNECTION_TYPE = process.env.CONNECTION_TYPE;
+const DB_USERNAME = process.env.DB_USERNAME;
+const DB_PASSWORD = process.env.DB_PASSWORD;
+const DB_HOST = process.env.DB_HOST;
+const DB_PORT = process.env.DB_PORT;
+const DB_NAME = process.env.DB_NAME;
+const DB_QUERY_PARAMS = process.env.DB_QUERY_PARAMS;
 
 /**
  * SSL / HTTPS settings
@@ -36,9 +38,12 @@ const DB_QUERY_PARAMS = '';
  * CA_PATH is the path where the chain.pem file is located
  */
 const HTTPS_ENABLED = false;
-const PRIVATE_KEY_PATH = '/opt/psa/var/modules/letsencrypt/etc/live/YOUR-DOMAIN-NAME.com/privkey.pem';
-const CERTIFICATE_PATH = '/opt/psa/var/modules/letsencrypt/etc/live/YOUR-DOMAIN-NAME.com/cert.pem';
-const CA_PATH = '/opt/psa/var/modules/letsencrypt/etc/live/YOUR-DOMAIN-NAME.com/chain.pem';
+const PRIVATE_KEY_PATH =
+  '/opt/psa/var/modules/letsencrypt/etc/live/YOUR-DOMAIN-NAME.com/privkey.pem';
+const CERTIFICATE_PATH =
+  '/opt/psa/var/modules/letsencrypt/etc/live/YOUR-DOMAIN-NAME.com/cert.pem';
+const CA_PATH =
+  '/opt/psa/var/modules/letsencrypt/etc/live/YOUR-DOMAIN-NAME.com/chain.pem';
 
 /**
  * Swagger UI settings

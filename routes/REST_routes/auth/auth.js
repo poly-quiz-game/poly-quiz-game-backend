@@ -11,10 +11,11 @@ const jwt = require('jsonwebtoken');
 const JwtStrategy = require('passport-jwt').Strategy;
 const ExtractJwt = require('passport-jwt').ExtractJwt;
 
+const { SESSION_SECRET } = require('../../../config');
 // const authenticationMiddleware = require('../../middleware/authenticationMiddleware');
-require('../../database/model/users');
+require('../../../database/model/users');
 
-const secret_key = 'TOP_SECRET';
+const secret_key = SESSION_SECRET;
 
 const Users = mongoose.model('Users');
 

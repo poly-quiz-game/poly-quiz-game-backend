@@ -1,6 +1,11 @@
 const mongoose = require('mongoose');
 
 const quizzesSchema = new mongoose.Schema({
+  type: {
+    type: String,
+    required: true,
+    enum: ['single-select', 'multi-select'],
+  },
   question: {
     type: String,
     required: true,

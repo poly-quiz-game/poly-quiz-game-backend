@@ -7,11 +7,22 @@ const session = require('express-session');
 const bodyParser = require('body-parser');
 const cookieParser = require('cookie-parser');
 const expressSwagger = require('express-swagger-generator')(app);
-const srvConfig = require('./config');
 const mongoose = require('mongoose');
 
-const { CONNECTION_TYPE, DB_HOST, DB_USERNAME, DB_PASSWORD, DB_PORT, DB_NAME, DB_QUERY_PARAMS } = srvConfig;
-const dbAuthString = DB_USERNAME && DB_PASSWORD ? `${srvConfig.DB_USERNAME}:${srvConfig.DB_PASSWORD}@` : '';
+const io = require('./routes/SOCKET_routes');
+const config = require('./config');
+
+const {
+  CONNECTION_TYPE,
+  DB_HOST,
+  DB_USERNAME,
+  DB_PASSWORD,
+  DB_PORT,
+  DB_NAME,
+  DB_QUERY_PARAMS,
+} = config;
+const dbAuthString =
+  DB_USERNAME && DB_PASSWORD ? `${DB_USERNAME}:${DB_PASSWORD}@` : '';
 
 let httpServer;
 
@@ -20,7 +31,7 @@ let httpServer;
  */
 app.use(
   cors({
-    // origin: `http://localhost:${srvConfig.SERVER_PORT}`,
+    // origin: `http://localhost:${config.SERVER_PORT}`,
     origin: function (origin, callback) {
       return callback(null, true);
     },
@@ -29,7 +40,7 @@ app.use(
   }),
   session({
     saveUninitialized: true,
-    secret: srvConfig.SESSION_SECRET,
+    secret: config.SESSION_SECRET,
     resave: true,
   }),
   cookieParser(),
@@ -39,32 +50,37 @@ app.use(
 /**
  * Include all API Routes
  */
-app.use('/api', require('./routes/api'));
+app.use('/api', require('./routes/REST_routes/api'));
 
 /**
  * Swagger UI documentation
  */
-if (srvConfig.SWAGGER_SETTINGS.enableSwaggerUI) expressSwagger(srvConfig.SWAGGER_SETTINGS);
+if (config.SWAGGER_SETTINGS.enableSwaggerUI)
+  expressSwagger(config.SWAGGER_SETTINGS);
 
 /**
  * Configure http(s)Server
  */
-if (srvConfig.HTTPS_ENABLED) {
-  const privateKey = fs.readFileSync(srvConfig.PRIVATE_KEY_PATH, 'utf8');
-  const certificate = fs.readFileSync(srvConfig.CERTIFICATE_PATH, 'utf8');
-  const ca = fs.readFileSync(srvConfig.CA_PATH, 'utf8');
+if (config.HTTPS_ENABLED) {
+  const privateKey = fs.readFileSync(config.PRIVATE_KEY_PATH, 'utf8');
+  const certificate = fs.readFileSync(config.CERTIFICATE_PATH, 'utf8');
+  const ca = fs.readFileSync(config.CA_PATH, 'utf8');
 
   // Create a HTTPS server
-  httpServer = https.createServer({ key: privateKey, cert: certificate, ca: ca }, app);
+  httpServer = https.createServer(
+    { key: privateKey, cert: certificate, ca: ca },
+    app
+  );
 } else {
   // Create a HTTP server
   httpServer = http.createServer({}, app);
 }
+console.log(111, `${CONNECTION_TYPE}://${dbAuthString}${DB_HOST}:${DB_PORT}/${DB_NAME}${DB_QUERY_PARAMS}`);
 
 /**
  * Start http server & connect to MongoDB
  */
-httpServer.listen(srvConfig.SERVER_PORT, () => {
+httpServer.listen(config.SERVER_PORT, () => {
   mongoose.connect(
     `${CONNECTION_TYPE}://${dbAuthString}${DB_HOST}:${DB_PORT}/${DB_NAME}${DB_QUERY_PARAMS}`,
     {
@@ -72,7 +88,7 @@ httpServer.listen(srvConfig.SERVER_PORT, () => {
       useUnifiedTopology: true,
     },
     () => {
-      console.log(`Server started on port ${srvConfig.SERVER_PORT}`);
+      console.log(`Server started on port ${config.SERVER_PORT}`);
     }
   );
 });
@@ -80,9 +96,16 @@ httpServer.listen(srvConfig.SERVER_PORT, () => {
 /**
  * Socket.io section
  */
-const io = require('socket.io')(httpServer);
-io.on('connection', function (socket) {
-  console.log(`New connection: ${socket.id}`);
+// const io = require('socket.io')(httpServer);
+// io.on('connection', function (socket) {
+//   console.log(`New connection: ${socket.id}`);
 
-  socket.on('disconnect', () => console.log(`Connection left (${socket.id})`));
+//   socket.on('disconnect', () => console.log(`Connection left (${socket.id})`));
+// });
+io.attach(httpServer, {
+  cors: {
+    origin: 'http://localhost:3000',
+    methods: ['GET', 'POST'],
+    credentials: true,
+  },
 });
