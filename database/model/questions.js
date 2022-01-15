@@ -1,10 +1,12 @@
+const { ObjectId } = require('mongoose');
 const mongoose = require('mongoose');
 
-const quizzesSchema = new mongoose.Schema({
+const questionsSchema = new mongoose.Schema({
   type: {
     type: String,
     required: true,
     enum: ['single-select', 'multi-select'],
+    default: 'single-select',
   },
   question: {
     type: String,
@@ -12,13 +14,14 @@ const quizzesSchema = new mongoose.Schema({
   },
   image: {
     type: String,
+    default: '',
   },
-  choices: {
+  answers: {
     type: [String],
     required: true,
   },
   correctAnswer: {
-    type: int,
+    type: Number,
     required: true,
   },
   time: {
@@ -26,8 +29,12 @@ const quizzesSchema = new mongoose.Schema({
     required: true,
     default: 20000,
   },
+  quizId: {
+    type: ObjectId,
+    required: true,
+  },
 });
 
-mongoose.model('Quizzes', quizzesSchema);
+mongoose.model('Questions', questionsSchema);
 
-module.exports = quizzesSchema;
+module.exports = questionsSchema;

@@ -1,3 +1,4 @@
+const { ObjectId } = require('mongoose');
 const mongoose = require('mongoose');
 
 const quizzesSchema = new mongoose.Schema({
@@ -6,7 +7,7 @@ const quizzesSchema = new mongoose.Schema({
     required: true,
   },
   questions: {
-    type: [String],
+    type: [JSON],
     required: true,
   },
 });

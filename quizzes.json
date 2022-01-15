@@ -1,0 +1,20 @@
+{
+  "name": "Bộ câu hỏi test",
+  "questions": [
+    {
+      "question": "Câu hỏi số 1?",
+      "answers": ["Câu trả lời đúng", "Câu trả lời sai", "Sai", "Vẫn sai"],
+      "correct": "1"
+    },
+    {
+      "question": "Đây là hỏi số 2?",
+      "answers": ["Câu trả lời sai", "Câu trả lời sai", "Đúng", "Vẫn sai"],
+      "correct": "3"
+    },
+    {
+      "question": "Câu là hỏi số 3?",
+      "answers": ["Câu trả lời sai", "Câu trả lời sai", "Sai", "Đúng"],
+      "correct": "4"
+    }
+  ]
+}

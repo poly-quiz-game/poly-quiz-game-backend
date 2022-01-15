@@ -9,7 +9,6 @@ const cookieParser = require('cookie-parser');
 const expressSwagger = require('express-swagger-generator')(app);
 const mongoose = require('mongoose');
 
-const io = require('./routes/SOCKET_routes');
 const config = require('./config');
 
 const {
@@ -75,7 +74,6 @@ if (config.HTTPS_ENABLED) {
   // Create a HTTP server
   httpServer = http.createServer({}, app);
 }
-console.log(111, `${CONNECTION_TYPE}://${dbAuthString}${DB_HOST}:${DB_PORT}/${DB_NAME}${DB_QUERY_PARAMS}`);
 
 /**
  * Start http server & connect to MongoDB
@@ -99,13 +97,17 @@ httpServer.listen(config.SERVER_PORT, () => {
 // const io = require('socket.io')(httpServer);
 // io.on('connection', function (socket) {
 //   console.log(`New connection: ${socket.id}`);
-
+//   socket.on('sendMsg', async data => {
+//     console.log(2222, data);
+//     socket.emit('sendMsg', 'hihi');
+//   });
 //   socket.on('disconnect', () => console.log(`Connection left (${socket.id})`));
 // });
+
+const io = require('./routes/SOCKET_routes');
 io.attach(httpServer, {
   cors: {
-    origin: 'http://localhost:3000',
+    origin: '*',
     methods: ['GET', 'POST'],
-    credentials: true,
   },
 });

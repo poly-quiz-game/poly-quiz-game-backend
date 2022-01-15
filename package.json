@@ -4,6 +4,7 @@
   "description": "",
   "main": "server.js",
   "scripts": {
+    "start": "yarn nodemon server.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
@@ -27,6 +28,7 @@
     "socket.io": "^2.3.0"
   },
   "devDependencies": {
+    "eslint": "^8.6.0",
     "express-swagger-generator": "^1.1.17",
     "nodemon": "^2.0.15",
     "prettier": "^2.5.1"

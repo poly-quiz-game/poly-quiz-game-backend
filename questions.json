@@ -1,0 +1,17 @@
+[
+  {
+    "question": ["Câu hỏi số 1?"],
+    "answers": ["Câu trả lời đúng", "Câu trả lời sai", "Sai", "Vẫn sai"],
+    "correctAnswer": 0
+  },
+  {
+    "question": ["Câu hỏi số 2?"],
+    "answers": ["Câu trả lời sai", "Câu trả lời sai", "Đúng", "Vẫn sai"],
+    "correctAnswer": 2
+  },
+  {
+    "question": ["Câu hỏi số 3?"],
+    "answers": ["Câu trả lời sai", "Câu trả lời sai", "Sai", "Đúng"],
+    "correctAnswer": 3
+  }
+]
