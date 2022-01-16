@@ -14,7 +14,7 @@ const { Players } = require('../../utils/players');
 const players = new Players();
 
 io.on('connection', socket => {
-  console.log('ON', new Date());
+  // console.log('ON', new Date());
   //When host connects for the first time
   socket.on('host-join', async data => {
     await Quizzes.findOne({ _id: data.id }, async function (err, result) {
@@ -38,7 +38,7 @@ io.on('connection', socket => {
 
       socket.join(room.pin); //The host is joining a room based on the pin
 
-      console.log('Room Created with pin:', room.pin);
+      // console.log('Room Created with pin:', room.pin);
 
       //Sending room pin to host so they can display it for players to join
       socket.emit('showRoomPin', {
@@ -99,7 +99,7 @@ io.on('connection', socket => {
     for (let i = 0; i < liveRooms.rooms.length; i++) {
       //If the pin is equal to one of the room's pin
       if (params.pin == liveRooms.rooms[i].pin) {
-        console.log('Player connected to room');
+        // console.log('Player connected to room');
 
         const hostId = liveRooms.rooms[i].hostId; //Get the id of host of room
 
@@ -146,7 +146,7 @@ io.on('connection', socket => {
       //Checking to see if host was disconnected or was sent to room view
       if (room.roomLive == false) {
         liveRooms.removeRoom(socket.id); //Remove the room from quizzes class
-        console.log('Room ended with pin:', room.pin);
+        // console.log('Room ended with pin:', room.pin);
 
         const playersToRemove = players.getPlayers(room.hostId); //Getting all players in the room
 
@@ -300,7 +300,7 @@ io.on('connection', socket => {
           const fifth = { name: '', score: 0 };
 
           for (let i = 0; i < playersInRoom.length; i++) {
-            console.log(playersInRoom[i].roomData.score);
+            // console.log(playersInRoom[i].roomData.score);
             if (playersInRoom[i].roomData.score > fifth.score) {
               if (playersInRoom[i].roomData.score > fourth.score) {
                 if (playersInRoom[i].roomData.score > third.score) {
@@ -387,14 +387,14 @@ io.on('connection', socket => {
   // get all quizzes
   socket.on('requestDbNames', async () => {
     const quizzes = await Quizzes.find();
-    console.log('requestDbNames: ', quizzes);
+    // console.log('requestDbNames: ', quizzes);
     socket.emit('quizNamesData', quizzes);
   });
 
   //Give room
   socket.on('getRoom', () => {
     const room = liveRooms.getRoom(socket.id); //Get the room based on socket.id
-    console.log('getRoom: ', room);
+    // console.log('getRoom: ', room);
     socket.emit('roomData', room); //Tell player and host that room has started
   });
 
@@ -409,7 +409,7 @@ io.on('connection', socket => {
 
   socket.on('newQuiz', async data => {
     await Quizzes.create(data, async function (err, result) {
-      console.log('newQuiz: ', result);
+      // console.log('newQuiz: ', result);
       socket.emit('startRoomFromCreator', result.id);
     });
   });
