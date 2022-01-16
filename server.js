@@ -6,7 +6,7 @@ const cors = require('cors');
 const session = require('express-session');
 const bodyParser = require('body-parser');
 const cookieParser = require('cookie-parser');
-const expressSwagger = require('express-swagger-generator')(app);
+// const expressSwagger = require('express-swagger-generator')(app);
 const mongoose = require('mongoose');
 
 const config = require('./config');
@@ -54,8 +54,8 @@ app.use('/api', require('./routes/REST_routes/api'));
 /**
  * Swagger UI documentation
  */
-if (config.SWAGGER_SETTINGS.enableSwaggerUI)
-  expressSwagger(config.SWAGGER_SETTINGS);
+// if (config.SWAGGER_SETTINGS.enableSwaggerUI)
+//   expressSwagger(config.SWAGGER_SETTINGS);
 
 /**
  * Configure http(s)Server
