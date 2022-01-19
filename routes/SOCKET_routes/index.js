@@ -17,33 +17,31 @@ io.on('connection', socket => {
   // console.log('ON', new Date());
   //When host connects for the first time
   socket.on('host-join', async data => {
-    await Quizzes.findOne({ _id: data.id }, async function (err, result) {
-      if (err) throw err;
+    const quiz = await Quizzes.findOne({ _id: data.id });
+    if (!quiz) {
+      return socket.emit('noRoomFound');
+    }
 
-      if (!result) {
-        return socket.emit('noRoomFound');
-      }
+    //A Quiz was found with the id passed in url
+    const roomPin = Math.floor(Math.random() * 90000) + 10000; //new pin for room
 
-      //A Quiz was found with the id passed in url
-      const roomPin = Math.floor(Math.random() * 90000) + 10000; //new pin for room
+    liveRooms.addRoom(roomPin, socket.id, false, {
+      playersAnswered: 0,
+      questionLive: false,
+      quizId: data.id,
+      question: 1,
+    }); //Creates a room with pin and host id
 
-      liveRooms.addRoom(roomPin, socket.id, false, {
-        playersAnswered: 0,
-        questionLive: false,
-        quizId: data.id,
-        question: 1,
-      }); //Creates a room with pin and host id
+    const room = liveRooms.getRoom(socket.id); // Gets the room data
 
-      const room = liveRooms.getRoom(socket.id); // Gets the room data
+    socket.join(room.pin); //The host is joining a room based on the pin
 
-      socket.join(room.pin); //The host is joining a room based on the pin
+    // console.log('Room Created with pin:', room.pin);
 
-      // console.log('Room Created with pin:', room.pin);
-
-      //Sending room pin to host so they can display it for players to join
-      socket.emit('showRoomPin', {
-        pin: room.pin,
-      });
+    //Sending room pin to host so they can display it for players to join
+    socket.emit('showRoomPin', {
+      pin: room.pin,
+      room,
     });
   });
 
@@ -60,31 +58,33 @@ io.on('connection', socket => {
           players.players[i].hostId = socket.id;
         }
       }
+      const quizId = room.roomData.quizId;
 
-      const roomid = room.roomData['roomid'];
-      await Quizzes.findOne(
-        { id: parseInt(roomid) },
-        async function (err, result) {
-          const question = result.questions[0].question;
-          const answer1 = result.questions[0].answers[0];
-          const answer2 = result.questions[0].answers[1];
-          const answer3 = result.questions[0].answers[2];
-          const answer4 = result.questions[0].answers[3];
-          const correctAnswer = result.questions[0].correct;
+      const quiz = await Quizzes.findOne({ _id: quizId });
+      if (!quiz) {
+        return socket.emit('noRoomFound'); //No room was found, redirect user
+      }
 
-          socket.emit('roomQuestions', {
-            q1: question,
-            a1: answer1,
-            a2: answer2,
-            a3: answer3,
-            a4: answer4,
-            correct: correctAnswer,
-            playersInRoom: playerData.length,
-          });
-        }
-      );
+      const questions = await Questions.find({ quizId: quizId });
 
-      io.to(room.pin).emit('roomStartedPlayer');
+      const question = questions[0].question;
+      const answer1 = questions[0].answers[0];
+      const answer2 = questions[0].answers[1];
+      const answer3 = questions[0].answers[2];
+      const answer4 = questions[0].answers[3];
+      const correctAnswer = questions[0].correctAnswer;
+
+      socket.emit('roomQuestions', {
+        q1: question,
+        a1: answer1,
+        a2: answer2,
+        a3: answer3,
+        a4: answer4,
+        correct: correctAnswer,
+        playersInRoom: playerData.length,
+      });
+
+      io.to(room.pin).emit('gameStartedPlayer');
       room.roomData.questionLive = true;
     } else {
       socket.emit('noRoomFound'); //No room was found, redirect user
@@ -99,11 +99,18 @@ io.on('connection', socket => {
     for (let i = 0; i < liveRooms.rooms.length; i++) {
       //If the pin is equal to one of the room's pin
       if (params.pin == liveRooms.rooms[i].pin) {
-        // console.log('Player connected to room');
+        console.log('Player connected to room');
 
         const hostId = liveRooms.rooms[i].hostId; //Get the id of host of room
 
-        players.addPlayer(hostId, socket.id, params.name, {
+        // check is existed player
+        if (players.getPlayer(socket.id)) {
+          return io
+            .to(params.pin)
+            .emit('playerJoined', players.getPlayer(socket.id)); //Sending host player data to display
+        }
+
+        const player = players.addPlayer(hostId, socket.id, params.name, {
           score: 0,
           answer: 0,
         }); //add player to room
@@ -113,12 +120,15 @@ io.on('connection', socket => {
         const playersInRoom = players.getPlayers(hostId); //Getting all players in room
 
         io.to(params.pin).emit('updatePlayerLobby', playersInRoom); //Sending host player data to display
+
+        io.to(params.pin).emit('playerJoined', player); //Sending host player data to display
         roomFound = true; //Room has been found
       }
     }
 
     //If the room has not been found
     if (roomFound == false) {
+      console.log('noRoomFound1: ', params);
       socket.emit('noRoomFound'); //Player is sent back to 'join' page because room was not found with pin
     }
   });
@@ -134,6 +144,7 @@ io.on('connection', socket => {
       const playerData = players.getPlayers(room.hostId);
       socket.emit('playerRoomData', playerData);
     } else {
+      console.log('noRoomFound2: ', data);
       socket.emit('noRoomFound'); //No player found
     }
   });
@@ -142,11 +153,12 @@ io.on('connection', socket => {
   socket.on('disconnect', () => {
     const room = liveRooms.getRoom(socket.id); //Finding room with socket.id
     //If a room hosted by that id is found, the socket disconnected is a host
+    console.log('disconnect: ', socket.id, room);
     if (room) {
       //Checking to see if host was disconnected or was sent to room view
       if (room.roomLive == false) {
         liveRooms.removeRoom(socket.id); //Remove the room from quizzes class
-        // console.log('Room ended with pin:', room.pin);
+        console.log('Room ended with pin:', room.pin);
 
         const playersToRemove = players.getPlayers(room.hostId); //Getting all players in the room
 
@@ -181,6 +193,9 @@ io.on('connection', socket => {
   //Sets data in player class to answer from player
   socket.on('playerAnswer', async num => {
     const player = players.getPlayer(socket.id);
+    if (!player) {
+      return socket.emit('noRoomFound');
+    }
     const hostId = player.hostId;
     const playerNum = players.getPlayers(hostId);
     const room = liveRooms.getRoom(hostId);
@@ -190,34 +205,34 @@ io.on('connection', socket => {
       room.roomData.playersAnswered += 1;
 
       const roomQuestion = room.roomData.question;
-      const roomid = room.roomData.roomid;
+      const quizId = room.roomData.quizId;
+      console.log('quizId: ', quizId);
 
-      await Quizzes.findOne(
-        { id: parseInt(roomid) },
-        async function (err, result) {
-          if (err) throw err;
-          const correctAnswer = result.questions[roomQuestion - 1].correct;
-          //Checks player answer with correct answer
-          if (num == correctAnswer) {
-            player.roomData.score += 100;
-            io.to(room.pin).emit('getTime', socket.id);
-            socket.emit('answerResult', true);
-          }
+      const quiz = await Quizzes.findOne({ _id: quizId });
+      const questions = await Questions.find({ quizId: quiz._id });
+      console.log('questions', questions, roomQuestion);
 
-          //Checks if all players answered
-          if (room.roomData.playersAnswered == playerNum.length) {
-            room.roomData.questionLive = false; //Question has been ended bc players all answered under time
-            const playerData = players.getPlayers(room.hostId);
-            io.to(room.pin).emit('questionOver', playerData, correctAnswer); //Tell everyone that question is over
-          } else {
-            //update host screen of num players answered
-            io.to(room.pin).emit('updatePlayersAnswered', {
-              playersInRoom: playerNum.length,
-              playersAnswered: room.roomData.playersAnswered,
-            });
-          }
-        }
-      );
+      const correctAnswer = questions[roomQuestion - 1].correctAnswer;
+      //Checks player answer with correct answer
+      console.log('correctAnswer', correctAnswer);
+      if (num == correctAnswer) {
+        player.roomData.score += 1;
+        io.to(room.pin).emit('getTime', socket.id);
+        socket.emit('answerResult', true);
+      }
+
+      //Checks if all players answered
+      if (room.roomData.playersAnswered == playerNum.length) {
+        room.roomData.questionLive = false; //Question has been ended bc players all answered under time
+        const playerData = players.getPlayers(room.hostId);
+        io.to(room.pin).emit('questionOver', playerData, correctAnswer); //Tell everyone that question is over
+      } else {
+        //update host screen of num players answered
+        io.to(room.pin).emit('updatePlayersAnswered', {
+          playersInRoom: playerNum.length,
+          playersAnswered: room.roomData.playersAnswered,
+        });
+      }
     }
   });
 
@@ -240,16 +255,13 @@ io.on('connection', socket => {
     const playerData = players.getPlayers(room.hostId);
 
     const roomQuestion = room.roomData.question;
-    const roomid = room.roomData.roomid;
+    const quizId = room.roomData.quizId;
 
-    await Quizzes.findOne(
-      { id: parseInt(roomid) },
-      async function (err, result) {
-        if (err) throw err;
-        const correctAnswer = result.questions[roomQuestion - 1].correct;
-        io.to(room.pin).emit('questionOver', playerData, correctAnswer);
-      }
-    );
+    const quiz = await Quizzes.findOne({ _id: quizId });
+    const questions = await Questions.find({ quizId: quiz._id });
+
+    const correctAnswer = questions[roomQuestion - 1].correctAnswer;
+    io.to(room.pin).emit('questionOver', playerData, correctAnswer);
   });
 
   socket.on('nextQuestion', async () => {
@@ -265,113 +277,108 @@ io.on('connection', socket => {
     room.roomData.playersAnswered = 0;
     room.roomData.questionLive = true;
     room.roomData.question += 1;
-    const roomid = room.roomData.roomid;
+    const quizId = room.roomData.quizId;
 
-    await Quizzes.findOne(
-      { id: parseInt(roomid) },
-      async function (err, result) {
-        if (err) throw err;
+    const quiz = await Quizzes.findOne({ _id: quizId });
+    const questions = await Questions.find({ quizId: quiz._id });
 
-        if (result.questions.length >= room.roomData.question) {
-          let questionNum = room.roomData.question;
-          questionNum = questionNum - 1;
-          const question = result.questions[questionNum].question;
-          const answer1 = result.questions[questionNum].answers[0];
-          const answer2 = result.questions[questionNum].answers[1];
-          const answer3 = result.questions[questionNum].answers[2];
-          const answer4 = result.questions[questionNum].answers[3];
-          const correctAnswer = result.questions[questionNum].correct;
+    if (questions.length >= room.roomData.question) {
+      let questionNum = room.roomData.question;
+      questionNum = questionNum - 1;
+      const question = questions[questionNum].question;
+      const answer1 = questions[questionNum].answers[0];
+      const answer2 = questions[questionNum].answers[1];
+      const answer3 = questions[questionNum].answers[2];
+      const answer4 = questions[questionNum].answers[3];
+      const correctAnswer = questions[questionNum].correctAnswer;
 
-          socket.emit('roomQuestions', {
-            q1: question,
-            a1: answer1,
-            a2: answer2,
-            a3: answer3,
-            a4: answer4,
-            correct: correctAnswer,
-            playersInRoom: playerData.length,
-          });
-        } else {
-          const playersInRoom = players.getPlayers(room.hostId);
-          const first = { name: '', score: 0 };
-          const second = { name: '', score: 0 };
-          const third = { name: '', score: 0 };
-          const fourth = { name: '', score: 0 };
-          const fifth = { name: '', score: 0 };
+      socket.emit('roomQuestions', {
+        q1: question,
+        a1: answer1,
+        a2: answer2,
+        a3: answer3,
+        a4: answer4,
+        correct: correctAnswer,
+        playersInRoom: playerData.length,
+      });
+    } else {
+      const playersInRoom = players.getPlayers(room.hostId);
+      const first = { name: '', score: 0 };
+      const second = { name: '', score: 0 };
+      const third = { name: '', score: 0 };
+      const fourth = { name: '', score: 0 };
+      const fifth = { name: '', score: 0 };
 
-          for (let i = 0; i < playersInRoom.length; i++) {
-            // console.log(playersInRoom[i].roomData.score);
-            if (playersInRoom[i].roomData.score > fifth.score) {
-              if (playersInRoom[i].roomData.score > fourth.score) {
-                if (playersInRoom[i].roomData.score > third.score) {
-                  if (playersInRoom[i].roomData.score > second.score) {
-                    if (playersInRoom[i].roomData.score > first.score) {
-                      //First Place
-                      fifth.name = fourth.name;
-                      fifth.score = fourth.score;
-
-                      fourth.name = third.name;
-                      fourth.score = third.score;
-
-                      third.name = second.name;
-                      third.score = second.score;
-
-                      second.name = first.name;
-                      second.score = first.score;
-
-                      first.name = playersInRoom[i].name;
-                      first.score = playersInRoom[i].roomData.score;
-                    } else {
-                      //Second Place
-                      fifth.name = fourth.name;
-                      fifth.score = fourth.score;
-
-                      fourth.name = third.name;
-                      fourth.score = third.score;
-
-                      third.name = second.name;
-                      third.score = second.score;
-
-                      second.name = playersInRoom[i].name;
-                      second.score = playersInRoom[i].roomData.score;
-                    }
-                  } else {
-                    //Third Place
-                    fifth.name = fourth.name;
-                    fifth.score = fourth.score;
-
-                    fourth.name = third.name;
-                    fourth.score = third.score;
-
-                    third.name = playersInRoom[i].name;
-                    third.score = playersInRoom[i].roomData.score;
-                  }
-                } else {
-                  //Fourth Place
+      for (let i = 0; i < playersInRoom.length; i++) {
+        if (playersInRoom[i].roomData.score > fifth.score) {
+          if (playersInRoom[i].roomData.score > fourth.score) {
+            if (playersInRoom[i].roomData.score > third.score) {
+              if (playersInRoom[i].roomData.score > second.score) {
+                if (playersInRoom[i].roomData.score > first.score) {
+                  //First Place
                   fifth.name = fourth.name;
                   fifth.score = fourth.score;
 
-                  fourth.name = playersInRoom[i].name;
-                  fourth.score = playersInRoom[i].roomData.score;
+                  fourth.name = third.name;
+                  fourth.score = third.score;
+
+                  third.name = second.name;
+                  third.score = second.score;
+
+                  second.name = first.name;
+                  second.score = first.score;
+
+                  first.name = playersInRoom[i].name;
+                  first.score = playersInRoom[i].roomData.score;
+                } else {
+                  //Second Place
+                  fifth.name = fourth.name;
+                  fifth.score = fourth.score;
+
+                  fourth.name = third.name;
+                  fourth.score = third.score;
+
+                  third.name = second.name;
+                  third.score = second.score;
+
+                  second.name = playersInRoom[i].name;
+                  second.score = playersInRoom[i].roomData.score;
                 }
               } else {
-                //Fifth Place
-                fifth.name = playersInRoom[i].name;
-                fifth.score = playersInRoom[i].roomData.score;
-              }
-            }
-          }
+                //Third Place
+                fifth.name = fourth.name;
+                fifth.score = fourth.score;
 
-          io.to(room.pin).emit('RoomOver', {
-            num1: first.name,
-            num2: second.name,
-            num3: third.name,
-            num4: fourth.name,
-            num5: fifth.name,
-          });
+                fourth.name = third.name;
+                fourth.score = third.score;
+
+                third.name = playersInRoom[i].name;
+                third.score = playersInRoom[i].roomData.score;
+              }
+            } else {
+              //Fourth Place
+              fifth.name = fourth.name;
+              fifth.score = fourth.score;
+
+              fourth.name = playersInRoom[i].name;
+              fourth.score = playersInRoom[i].roomData.score;
+            }
+          } else {
+            //Fifth Place
+            fifth.name = playersInRoom[i].name;
+            fifth.score = playersInRoom[i].roomData.score;
+          }
         }
       }
-    );
+
+      io.to(room.pin).emit('GameOver', {
+        num1: first.name,
+        num2: second.name,
+        num3: third.name,
+        num4: fourth.name,
+        num5: fifth.name,
+      });
+    }
 
     io.to(room.pin).emit('nextQuestionPlayer');
   });
@@ -387,29 +394,40 @@ io.on('connection', socket => {
   // get all quizzes
   socket.on('requestDbNames', async () => {
     const quizzes = await Quizzes.find();
-    // console.log('requestDbNames: ', quizzes);
     socket.emit('quizNamesData', quizzes);
   });
 
   //Give room
   socket.on('getRoom', () => {
     const room = liveRooms.getRoom(socket.id); //Get the room based on socket.id
-    // console.log('getRoom: ', room);
     socket.emit('roomData', room); //Tell player and host that room has started
+  });
+
+  //Give room
+  socket.on('getAllRoom', () => {
+    const rooms = liveRooms.getRoom(); //Get the room based on socket.id
+    socket.emit('allRoom', rooms); //Tell player and host that room has started
+  });
+
+  // Get Room By Pin
+  socket.on('getRoomByPin', pin => {
+    const room = liveRooms.getRoomByPin(Number(pin)); //Get the room based on socket.id
+    socket.emit('roomDataFromPin', room); //Tell player and host that room has started
   });
 
   //Give user room names data
   socket.on('getQuiz', async ({ id }) => {
     const quiz = await Quizzes.findOne({ _id: id });
+    if (!quiz) {
+      socket.emit('quizData', null);
+    }
     const questions = await Questions.find({ quizId: quiz._id });
     quiz.questions = questions;
-    socket.emit('getQuiz', quiz);
     socket.emit('quizData', quiz);
   });
 
   socket.on('newQuiz', async data => {
     await Quizzes.create(data, async function (err, result) {
-      // console.log('newQuiz: ', result);
       socket.emit('startRoomFromCreator', result.id);
     });
   });

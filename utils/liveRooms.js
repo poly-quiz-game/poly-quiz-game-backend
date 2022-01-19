@@ -11,12 +11,18 @@ class LiveRooms {
     var room = this.getRoom(hostId);
 
     if (room) {
-      this.rooms = this.rooms.filter((room) => room.hostId !== hostId);
+      this.rooms = this.rooms.filter(room => room.hostId !== hostId);
     }
     return room;
   }
   getRoom(hostId) {
-    return this.rooms.filter((room) => room.hostId === hostId)[0];
+    if (hostId) {
+      return this.rooms.filter(room => room.hostId === hostId)[0];
+    }
+    return this.rooms;
+  }
+  getRoomByPin(pin) {
+    return this.rooms.filter(room => room.pin == pin)[0];
   }
 }
 
