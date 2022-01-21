@@ -25,6 +25,7 @@
     "passport-jwt": "^4.0.0",
     "passport-local": "latest",
     "passport-oauth": "^1.0.0",
+    "redis-om": "^0.1.7",
     "socket.io": "^2.3.0"
   },
   "devDependencies": {
