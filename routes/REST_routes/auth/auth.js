@@ -1,23 +1,26 @@
-const express = require('express');
+const express = require("express");
 const authRouter = express.Router();
-require('querystring');
-const mongoose = require('mongoose');
+require("querystring");
+const mongoose = require("mongoose");
 const db = mongoose.connection;
-const passport = require('passport');
-const LocalStrategy = require('passport-local').Strategy;
-const flash = require('connect-flash');
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
-const JwtStrategy = require('passport-jwt').Strategy;
-const ExtractJwt = require('passport-jwt').ExtractJwt;
+const passport = require("passport");
+const LocalStrategy = require("passport-local").Strategy;
+const flash = require("connect-flash");
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
+const JwtStrategy = require("passport-jwt").Strategy;
+const ExtractJwt = require("passport-jwt").ExtractJwt;
 
-const { SESSION_SECRET } = require('../../../config');
+const { OAuth2Client, JWT } = require("google-auth-library");
+const client = new OAuth2Client("767848981447-tebf1tn4llljl98lddf4u4fp7666nqtg.apps.googleusercontent.com");
+
+const { SESSION_SECRET } = require("../../../config");
 // const authenticationMiddleware = require('../../middleware/authenticationMiddleware');
-require('../../../database/model/users');
+require("../../../database/model/users");
 
 const secret_key = SESSION_SECRET;
 
-const Users = mongoose.model('Users');
+const Users = mongoose.model("Users");
 
 authRouter.use(passport.initialize());
 authRouter.use(passport.session());
@@ -30,23 +33,24 @@ passport.use(
         return done(err);
       }
       if (!user) {
-        return done(null, false, { message: 'username-incorrect' });
+        return done(null, false, { message: "username-incorrect" });
       }
       if (!bcrypt.compareSync(password, user.password)) {
-        return done(null, false, { message: 'password-incorrect' });
+        return done(null, false, { message: "password-incorrect" });
       }
       return done(null, user);
     });
   })
 );
 
-var opts = {};
+const opts = {};
 opts.jwtFromRequest = ExtractJwt.fromAuthHeaderAsBearerToken();
 opts.secretOrKey = secret_key;
 
 passport.use(
   new JwtStrategy(opts, function (jwt_payload, done) {
-    Users.findOne({ username: jwt_payload.username }, function (err, user) {
+    Users.findOne({ _id: jwt_payload._id }, function (err, user) {
+
       if (err) {
         return done(err, false);
       }
@@ -87,26 +91,49 @@ passport.deserializeUser(function (user, done) {
  * @produces application/json
  * @consumes application/json
  */
-authRouter.post('/login', function (req, res, next) {
-  passport.authenticate('local', function (err, user, info) {
-    if (err) return next(err);
+authRouter.post("/google-login", async function (req, res, next) {
+  const { tokenId } = req.body;
+  const response = await client.verifyIdToken({
+    idToken: tokenId,
+    audience: process.env.O2AUTH_GOOGLE_CLIENT_ID,
+    scopes: ['https://www.googleapis.com/auth/cloud-platform'],
+  });
+  const {email_verified, name, email} = response.payload
+  if(email_verified) {
+    Users.findOne({email}).exec((err, user) => {
+      if(err){
+        return res.status(400).json({error: "This user doesn't exist"})
+      } else {
+        if(user) {
+          const token = jwt.sign({_id: user._id,}, process.env.JWT_SIGNIN_KEY, {expiresIn: '7d'})
+          const {_id, name, email} = user;
+          return res.status(200).json({token, user: {_id, name, email}})
+        } else {
+          return res.status(400).json({error: "This user doesn't exist"})
+        }
+      }
 
-    if (!user) {
-      return res
-        .status(401)
-        .json({ message: 'Username and/or password is incorrect.' });
-    }
-    req.logIn(user, function (err) {
-      if (err) return next(err);
-      const body = {
-        name: req.session.passport.user.name,
-        username: req.session.passport.user.username,
-      };
-      const token = jwt.sign({ user: body }, secret_key);
-
-      return res.json({ token });
-    });
-  })(req, res, next);
+    })
+  }
+  // passport.authenticate('local', function (err, user, info) {
+  //   if (err) return next(err);
+  //
+  //   if (!user) {
+  //     return res
+  //       .status(401)
+  //       .json({ message: 'Username and/or password is incorrect.' });
+  //   }
+  //   req.logIn(user, function (err) {
+  //     if (err) return next(err);
+  //     const body = {
+  //       name: req.session.passport.user.name,
+  //       username: req.session.passport.user.username,
+  //     };
+  //     const token = jwt.sign({ user: body }, secret_key);
+  //
+  //     return res.json({ token });
+  //   });
+  // })(req, res, next);
 });
 
 /**
@@ -130,13 +157,13 @@ authRouter.post('/login', function (req, res, next) {
  * @produces application/json
  * @consumes application/json
  */
-authRouter.post('/register', async (req, res) => {
+authRouter.post("/register", async (req, res) => {
   let { name, username, password } = req.body;
 
   if (!name || !username || !password)
     return res.status(409).json({
       success: false,
-      message: 'All fields are required!',
+      message: "All fields are required!",
     });
 
   await Users.findOne({ username: username }, async function (err, user) {
@@ -144,7 +171,7 @@ authRouter.post('/register', async (req, res) => {
     if (user)
       return res
         .status(303)
-        .json({ success: false, message: 'Username already exist!' });
+        .json({ success: false, message: "Username already exist!" });
 
     const salt = bcrypt.genSaltSync(10);
     const newUser = new Users({
@@ -159,7 +186,7 @@ authRouter.post('/register', async (req, res) => {
 
     return res.status(201).json({
       success: true,
-      message: 'User is successfully registered!',
+      message: "User is successfully registered!",
     });
   });
 });
@@ -175,9 +202,9 @@ authRouter.post('/register', async (req, res) => {
  * @returns {ResponseUsernameAvailabilityJSON.model} 200 - Availability of a username
  * @produces application/json
  */
-authRouter.get('/username-availability', async (req, res) => {
+authRouter.get("/username-availability", async (req, res) => {
   let username = req.query.username;
-  if (!username || username === '')
+  if (!username || username === "")
     return res.json({
       error: true,
       message: "Username can't be empty!",
@@ -196,9 +223,10 @@ authRouter.get('/username-availability', async (req, res) => {
 });
 
 authRouter.get(
-  '/dashboard',
-  passport.authenticate('jwt', { session: false }),
+  "/dashboard",
+  passport.authenticate("jwt", { session: false }),
   (req, res) => {
+
     return res.json(req.user);
   }
 );

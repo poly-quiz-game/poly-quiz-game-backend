@@ -8,6 +8,7 @@ const bodyParser = require('body-parser');
 const cookieParser = require('cookie-parser');
 // const expressSwagger = require('express-swagger-generator')(app);
 const mongoose = require('mongoose');
+const logger = require("morgan");
 
 const config = require('./config');
 
@@ -45,6 +46,7 @@ app.use(
   cookieParser(),
   bodyParser.json()
 );
+app.use(logger("dev"));
 
 /**
  * Include all API Routes
