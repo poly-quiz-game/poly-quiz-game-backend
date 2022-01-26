@@ -12,7 +12,7 @@ api.use('/v1', v1Route);
 api.use('/auth', authRoute);
 api.use('/quiz', quizRoute);
 api.use('/room', roomRoute);
-api.use('/users', userRoute);
+api.use('/user', userRoute);
 
 
 module.exports = api;
