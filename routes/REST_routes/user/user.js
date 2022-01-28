@@ -42,13 +42,11 @@ init.delete('/:id', async function (req, res) {
   }
 });
 
-init.post('/',
- body('email').isEmail(),
-  async function (req, res) {
+init.post('/', body('email').isEmail(), async function (req, res) {
   const user = await new Users(req.body);
   const errors = validationResult(req);
   if (!errors.isEmpty() && errors.errors[0].param === 'email') {
-    return res.status(400).json('Invalid email address. Please try again.')
+    return res.status(400).json('Invalid email address. Please try again.');
   }
   // if (!errors.isEmpty() && errors.errors[0].param === 'name') {
   //   return res.status(400).json({ errors: 'name must be at least 7 characters long' });
@@ -64,12 +62,10 @@ init.post('/',
   });
 });
 
-init.put('/:id',
-body('email').isEmail(),
-async function (req, res) {
+init.put('/:id', body('email').isEmail(), async function (req, res) {
   const errors = validationResult(req);
   if (!errors.isEmpty() && errors.errors[0].param === 'email') {
-    return res.status(400).json('Invalid email address. Please try again.')
+    return res.status(400).json('Invalid email address. Please try again.');
   }
   let user = await Users.findOne({ _id: req.params.id });
   user.name = req.body.name;

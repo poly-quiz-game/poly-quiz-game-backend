@@ -10,6 +10,10 @@ const usersSchema = new mongoose.Schema({
     required: true,
     unique: true,
   },
+  role :{
+    type: String,
+    default: "member"
+  }
 
 
 });
