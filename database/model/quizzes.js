@@ -5,10 +5,6 @@ const quizzesSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
-  questions: {
-    type: [JSON],
-    required: true,
-  },
 });
 
 mongoose.model('Quizzes', quizzesSchema);
