@@ -48,10 +48,6 @@ init.post('/', body('email').isEmail(), async function (req, res) {
   if (!errors.isEmpty() && errors.errors[0].param === 'email') {
     return res.status(400).json('Invalid email address. Please try again.');
   }
-  // if (!errors.isEmpty() && errors.errors[0].param === 'name') {
-  //   return res.status(400).json({ errors: 'name must be at least 7 characters long' });
-  // }
-
   user.save((err, data) => {
     if (err) {
       return res.status(400).json({
