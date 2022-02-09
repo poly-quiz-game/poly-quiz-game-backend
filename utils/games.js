@@ -1,23 +1,52 @@
+// const game = {
+//   hostSocketId,
+//   pin,
+//   quizId,
+//   isLive,
+//   isQuestionLive,
+//   questionIndex,
+// };
+
 class Games {
   constructor() {
     this.games = [];
   }
-  addGame(pin, hostId, gameLive, gameData) {
-    var game = { pin, hostId, gameLive, gameData };
+
+  addGame = ({
+    hostSocketId,
+    pin,
+    quizId,
+    isLive,
+    isQuestionLive,
+    questionIndex,
+    questionsLength,
+    quizData,
+  }) => {
+    var game = {
+      hostSocketId,
+      pin,
+      quizId,
+      isLive,
+      isQuestionLive,
+      questionIndex,
+      questionsLength,
+      quizData,
+    };
     this.games.push(game);
     return game;
-  }
-  removeGame(hostId) {
-    var game = this.getGame(hostId);
+  };
+
+  removeGame(socketId) {
+    var game = this.getGame(socketId);
 
     if (game) {
-      this.games = this.games.filter(game => game.hostId !== hostId);
+      this.games = this.games.filter(game => game.hostSocketId !== socketId);
     }
     return game;
   }
-  getGame(hostId) {
-    if (hostId) {
-      return this.games.filter(game => game.hostId === hostId)[0];
+  getGame(socketId) {
+    if (socketId) {
+      return this.games.filter(game => game.hostSocketId === socketId)[0];
     }
     return this.games;
   }

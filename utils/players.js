@@ -2,26 +2,34 @@ class Players {
   constructor() {
     this.players = [];
   }
-  addPlayer(hostId, playerId, name, gameData) {
-    var player = { hostId, playerId, name, gameData };
+  addPlayer({ hostSocketId, playerSocketId, name, score, answers }) {
+    var player = {
+      hostSocketId,
+      playerSocketId,
+      name,
+      score,
+      answers,
+    };
     this.players.push(player);
     return player;
   }
-  removePlayer(playerId) {
-    var player = this.getPlayer(playerId);
+  removePlayer(socketId) {
+    var player = this.getPlayer(socketId);
 
     if (player) {
       this.players = this.players.filter(
-        player => player.playerId !== playerId
+        player => player.playerSocketId !== socketId
       );
     }
     return player;
   }
-  getPlayer(playerId) {
-    return this.players.filter(player => player.playerId == playerId)[0];
+  getPlayer(playerSocketId) {
+    return this.players.filter(
+      player => player.playerSocketId == playerSocketId
+    )[0];
   }
-  getPlayers(hostId) {
-    return this.players.filter(player => player.hostId == hostId);
+  getPlayers(hostSocketId) {
+    return this.players.filter(player => player.hostSocketId == hostSocketId);
   }
 }
 

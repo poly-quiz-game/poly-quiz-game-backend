@@ -9,7 +9,6 @@ const usersSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
-
 });
 
 mongoose.model('Users', usersSchema);

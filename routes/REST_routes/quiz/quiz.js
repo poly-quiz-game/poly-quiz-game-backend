@@ -27,7 +27,8 @@ init.get(
     try {
       let quiz = await Quizzes.findOne({ _id: req.params.id });
       const questions = await Questions.find({ quizId: quiz._id });
-      quiz.questions = questions;
+      quiz._doc.questions = questions;
+
       res.json({
         data: quiz,
       });
