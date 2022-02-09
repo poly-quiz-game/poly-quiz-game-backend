@@ -67,7 +67,7 @@ io.on('connection', socket => {
 
       const quiz = await Quizzes.findOne({ _id: quizId });
       if (!quiz) {
-        return socket.emit('noRoomFound-host'); //No room was found, redirect user
+        return socket.emit('noGameFound-host'); //No room was found, redirect user
       }
 
       const questions = await Questions.find({ quizId });
@@ -105,7 +105,8 @@ io.on('connection', socket => {
         console.log('Player connected to game');
         const { hostSocketId, quizData } = games.games[i]; //Get the id of host of game
         if (
-          players.getPlayers(hostSocketId).length >= quizData.numberOfPlayer
+          players.getPlayers(hostSocketId).length >=
+          quizData._doc.numberOfPlayer
         ) {
           socket.emit('noGameFound-player'); //Player is sent back to 'join' page because game was not found with pin
           return;
@@ -158,6 +159,7 @@ io.on('connection', socket => {
       const playersInGame = players.getPlayers(game.hostSocketId);
       socket.emit('gamePlayers-host', playersInGame); // number of players in game
       socket.emit('playerInfo-player', player); // number of players in game
+      socket.emit('gameInfo-player', { pin: game.pin }); // number of players in game
     } else {
       socket.emit('noGameFound-player'); //No game found
     }
@@ -401,6 +403,10 @@ io.on('connection', socket => {
   //When the host starts the game
   socket.on('startGame', () => {
     const game = games.getGame(socket.id); //Get the game based on socket.id
+    if (!game) {
+      socket.emit('noGameFound-host');
+      return;
+    }
     game.isLive = true;
     socket.emit('gameStarted', game.hostSocketId); //Tell player and host that game has started
     socket.emit('gameInfo-host', game); // pin, question live, game live
