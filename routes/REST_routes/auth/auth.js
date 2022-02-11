@@ -99,21 +99,28 @@ authRouter.post('/google-login', async function (req, res, next) {
     audience: process.env.O2AUTH_GOOGLE_CLIENT_ID,
     scopes: ['https://www.googleapis.com/auth/cloud-platform'],
   });
-
+console.log(response.payload.name)
   const { email_verified, name, email } = response.payload;
   if (email_verified) {
+
     Users.findOne({ email }).exec((err, user) => {
       if (err) {
         return res.status(400).json({ error: "This user doesn't exist" });
       } else {
         if (user) {
+          // console.log((user.name));
+          if(typeof(user.name) === 'undefined'){
+            user.name = response.payload.name;
+            console.log(user);
+            user.save();
+          }
           const token = jwt.sign(
             { _id: user._id },
             process.env.JWT_SIGNIN_KEY,
             { expiresIn: '7d' }
           );
-          const { _id, name, email } = user;
-          return res.status(200).json({ token, user: { _id, name, email } });
+          // const { _id, name, email } = user;
+          return res.status(200).json({ token, user});
         } else {
           return res.status(400).json({ error: "This user doesn't exist" });
         }
