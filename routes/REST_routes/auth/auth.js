@@ -91,7 +91,6 @@ passport.deserializeUser(function (user, done) {
  * @produces application/json
  * @consumes application/json
  */
-
 authRouter.post('/google-login', async function (req, res) {
   const { tokenId } = req.body;
   const response = await client.verifyIdToken({
@@ -99,24 +98,24 @@ authRouter.post('/google-login', async function (req, res) {
     audience: process.env.O2AUTH_GOOGLE_CLIENT_ID,
     scopes: ['https://www.googleapis.com/auth/cloud-platform'],
   });
-
-  const { email_verified, picture, email } = response.payload;
-
+  const { email_verified, email } = response.payload;
   if (email_verified) {
     Users.findOne({ email }).exec((err, user) => {
       if (err) {
         return res.status(400).json({ error: "This user doesn't exist" });
       } else {
         if (user) {
-          const { _id, name, email } = user;
+          if (!user.name) {
+            user.name = response.payload.name;
+            user.save();
+          }
           const token = jwt.sign(
-            { _id, name, email },
+            { _id: user._id },
             process.env.JWT_SIGNIN_KEY,
             { expiresIn: '7d' }
           );
-          return res
-            .status(200)
-            .json({ token, user: { _id, name, email, picture } });
+          // const { _id, name, email } = user;
+          return res.status(200).json({ token, user });
         } else {
           return res.status(400).json({ error: "This user doesn't exist" });
         }
