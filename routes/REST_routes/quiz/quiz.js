@@ -6,9 +6,6 @@ const passport = require('passport');
 require('../../../database/model/quizzes');
 const Quizzes = mongoose.model('Quizzes');
 
-require('../../../database/model/questions');
-const Questions = mongoose.model('Questions');
-
 init.get(
   '/',
   passport.authenticate('jwt', { session: false }),
@@ -20,15 +17,32 @@ init.get(
   }
 );
 
+init.post(
+  '/',
+  passport.authenticate('jwt', { session: false }),
+  async function (req, res) {
+    try {
+      const newQuiz = new Quizzes({
+        user: req.user._id,
+        ...req.body.quiz,
+      });
+      const response = await newQuiz.save();
+      res.json(response);
+    } catch (error) {
+      res.json({
+        data: error,
+      });
+    }
+  }
+);
+
 init.get(
   '/:id',
   passport.authenticate('jwt', { session: false }),
   async function (req, res) {
+    // console.log(req);
     try {
-      let quiz = await Quizzes.findOne({ _id: req.params.id });
-      const questions = await Questions.find({ quizId: quiz._id });
-      quiz._doc.questions = questions;
-
+      let quiz = await Quizzes.findOne({ _id: req.params.id }).populate('user');
       res.json({
         data: quiz,
       });

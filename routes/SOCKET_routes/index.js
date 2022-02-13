@@ -4,8 +4,8 @@ const mongoose = require('mongoose');
 require('../../database/model/quizzes');
 const Quizzes = mongoose.model('Quizzes');
 
-require('../../database/model/questions');
-const Questions = mongoose.model('Questions');
+require('../../database/model/reports');
+const Reports = mongoose.model('Reports');
 
 const { Games } = require('../../utils/games');
 const games = new Games();
@@ -21,7 +21,6 @@ io.on('connection', socket => {
     const quiz = await Quizzes.findOne({ _id: data.id });
     //A kahoot was found with the id passed in url
     if (quiz) {
-      const questions = await Questions.find({ quizId: quiz._id });
       const gamePin = Math.floor(Math.random() * 90000) + 10000; //new pin for game
       const game = {
         hostSocketId: socket.id,
@@ -30,7 +29,7 @@ io.on('connection', socket => {
         isLive: false,
         isQuestionLive: false,
         questionIndex: 0,
-        questionsLength: questions.length,
+        questionsLength: quiz.questions.length,
         quizData: quiz,
       };
 
@@ -63,14 +62,9 @@ io.on('connection', socket => {
         }
       }
 
-      const { quizId, questionIndex } = game;
+      const { quizData, questionIndex } = game;
 
-      const quiz = await Quizzes.findOne({ _id: quizId });
-      if (!quiz) {
-        return socket.emit('noGameFound-host'); //No room was found, redirect user
-      }
-
-      const questions = await Questions.find({ quizId });
+      const { questions } = quizData;
       const question = questions[questionIndex];
 
       // delete question._doc.correctAnswer;
@@ -82,7 +76,7 @@ io.on('connection', socket => {
         playersInGame: playersInGame.length,
         playersAnswered: 0,
       });
-      socket.emit('quizInfo-host', quiz); // background, music, need login?
+      socket.emit('quizInfo-host', quizData); // background, music, need login?
       socket.emit('gameInfo-host', game); // pin, question live, game live
 
       // Notify to player that game has started
@@ -226,9 +220,10 @@ io.on('connection', socket => {
       //if the question is still live
       player.answers.push(num);
 
-      const { questionIndex, quizId } = game;
+      const { questionIndex, quizData } = game;
 
-      const questions = await Questions.find({ quizId });
+      const { questions } = quizData;
+      console.log(questions, questions[questionIndex], questionIndex);
       const { correctAnswer } = questions[questionIndex];
 
       //Checks player answer with correct answer
@@ -277,9 +272,9 @@ io.on('connection', socket => {
 
     game.isQuestionLive = false;
 
-    const { questionIndex, quizId } = game;
+    const { questionIndex, quizData } = game;
 
-    const questions = await Questions.find({ quizId });
+    const questions = quizData;
     const correctAnswer = questions[questionIndex].correctAnswer;
 
     io.to(game.pin).emit('questionOver-all', playersInGame, correctAnswer);
@@ -295,9 +290,9 @@ io.on('connection', socket => {
     game.isQuestionLive = true;
     game.questionIndex += 1;
 
-    const { quizId } = game;
+    const { quizData } = game;
 
-    const questions = await Questions.find({ quizId });
+    const { questions } = quizData;
 
     // next question
     if (questions.length > game.questionIndex) {
@@ -317,6 +312,15 @@ io.on('connection', socket => {
       const third = { name: '', score: 0 };
       const fourth = { name: '', score: 0 };
       const fifth = { name: '', score: 0 };
+
+      const report = {
+        players: playersInGame,
+        questions,
+        quiz: quizData,
+      };
+      console.log('report: ', report);
+      const res = await Reports.create(report);
+      console.log('created report:', res);
 
       for (let i = 0; i < playersInGame.length; i++) {
         io.to(playersInGame[i].playerSocketId).emit('GameOverPlayer', {

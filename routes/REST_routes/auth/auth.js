@@ -93,34 +93,38 @@ passport.deserializeUser(function (user, done) {
  */
 authRouter.post('/google-login', async function (req, res) {
   const { tokenId } = req.body;
-  const response = await client.verifyIdToken({
-    idToken: tokenId,
-    audience: process.env.O2AUTH_GOOGLE_CLIENT_ID,
-    scopes: ['https://www.googleapis.com/auth/cloud-platform'],
-  });
-  const { email_verified, email } = response.payload;
-  if (email_verified) {
-    Users.findOne({ email }).exec((err, user) => {
-      if (err) {
-        return res.status(400).json({ error: "This user doesn't exist" });
-      } else {
-        if (user) {
-          if (!user.name) {
-            user.name = response.payload.name;
-            user.save();
-          }
-          const token = jwt.sign(
-            { _id: user._id },
-            process.env.JWT_SIGNIN_KEY,
-            { expiresIn: '7d' }
-          );
-          // const { _id, name, email } = user;
-          return res.status(200).json({ token, user });
-        } else {
-          return res.status(400).json({ error: "This user doesn't exist" });
-        }
-      }
+  try {
+    const response = await client.verifyIdToken({
+      idToken: tokenId,
+      audience: process.env.O2AUTH_GOOGLE_CLIENT_ID,
+      scopes: ['https://www.googleapis.com/auth/cloud-platform'],
     });
+    const { email_verified, email } = response.payload;
+    if (email_verified) {
+      Users.findOne({ email }).exec((err, user) => {
+        if (err) {
+          return res.status(400).json({ error: "This user doesn't exist" });
+        } else {
+          if (user) {
+            if (!user.name) {
+              user.name = response.payload.name;
+              user.save();
+            }
+            const token = jwt.sign(
+              { _id: user._id },
+              process.env.JWT_SIGNIN_KEY,
+              { expiresIn: '7d' }
+            );
+            // const { _id, name, email } = user;
+            return res.status(200).json({ token, user });
+          } else {
+            return res.status(400).json({ error: "This user doesn't exist" });
+          }
+        }
+      });
+    }
+  } catch (error) {
+    console.log(error);
   }
 });
 
