@@ -313,14 +313,32 @@ io.on('connection', socket => {
       const fourth = { name: '', score: 0 };
       const fifth = { name: '', score: 0 };
 
+      const reportPlayers = playersInGame.map(player => ({
+        name: player.name,
+        score: player.score,
+      }));
+
+      const reportQuiz = {
+        name: game.quizData.name,
+        description: game.quizData.description,
+        questions: game.quizData.questions,
+        numberOfPlayer: game.quizData.numberOfPlayer,
+        needLogin: game.quizData.needLogin,
+    };
       const report = {
-        players: playersInGame,
+        user: quizData.user,
+        name: quizData.name,
+        players: reportPlayers,
         questions,
-        quiz: quizData,
+        quiz: reportQuiz,
       };
-      console.log('report: ', report);
-      const res = await Reports.create(report);
-      console.log('created report:', res);
+
+      const resReport = await Reports.create(report);
+
+      await Quizzes.update(
+        { _id: quizData._id },
+        { $push: { reports: resReport._id } }
+      );
 
       for (let i = 0; i < playersInGame.length; i++) {
         io.to(playersInGame[i].playerSocketId).emit('GameOverPlayer', {

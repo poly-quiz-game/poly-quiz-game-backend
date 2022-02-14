@@ -6,7 +6,6 @@ const passport = require('passport');
 require('../../../database/model/quizzes');
 const Quizzes = mongoose.model('Quizzes');
 
-//lấy dự liệu từ db về
 init.get(
   '/',
   passport.authenticate('jwt', { session: false }),
@@ -18,7 +17,21 @@ init.get(
   }
 );
 
-//add
+init.get('/:id', async function (req, res) {
+  try {
+    const quiz = await Quizzes.findOne({ _id: req.params.id }).populate(
+      'reports'
+    );
+    res.json({
+      data: quiz,
+    });
+  } catch (error) {
+    res.json({
+      data: error,
+    });
+  }
+});
+
 init.post('/', async function (req, res) {
   const quizzes = await Quizzes(req.body);
   quizzes.save((err, data) => {
@@ -31,7 +44,6 @@ init.post('/', async function (req, res) {
   });
 });
 
-//delete api
 init.delete('/:id', async function (req, res) {
   let quiz = await Quizzes.findOne({ _id: req.params.id });
   quiz.remove((err, deleteItem) => {
@@ -47,7 +59,6 @@ init.delete('/:id', async function (req, res) {
   });
 });
 
-//update
 init.put('/:id', async function (req, res) {
   try {
     await Quizzes.updateOne({ _id: req.params.id }, req.body);
@@ -55,19 +66,6 @@ init.put('/:id', async function (req, res) {
   } catch {
     res.status(400).json({
       error: 'không sửa được dữ liệu',
-    });
-  }
-});
-
-init.get('/:id', async function (req, res) {
-  try {
-    const quiz = await Quizzes.findOne({ _id: req.params.id });
-    res.json({
-      data: quiz,
-    });
-  } catch (error) {
-    res.json({
-      data: error,
     });
   }
 });

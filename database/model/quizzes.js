@@ -32,6 +32,7 @@ const quizzesSchema = new mongoose.Schema(
       type: [JSON],
       required: true,
     },
+    reports: [{ type: ObjectId, ref: 'Reports' }],
   },
   {
     timestamps: true,

@@ -8,7 +8,7 @@ const bodyParser = require('body-parser');
 const cookieParser = require('cookie-parser');
 // const expressSwagger = require('express-swagger-generator')(app);
 const mongoose = require('mongoose');
-const logger = require("morgan");
+const logger = require('morgan');
 
 const config = require('./config');
 
@@ -44,9 +44,10 @@ app.use(
     resave: true,
   }),
   cookieParser(),
-  bodyParser.json()
+  bodyParser.json({ limit: '50mb' })
 );
-app.use(logger("dev"));
+
+app.use(logger('dev'));
 
 /**
  * Include all API Routes
