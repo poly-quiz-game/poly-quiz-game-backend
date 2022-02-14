@@ -5,7 +5,7 @@ const reportsSchema = new mongoose.Schema(
   {
     user: {
       type: ObjectId,
-      required: true,
+      ref: 'Users',
     },
     name: {
       type: String,
@@ -22,6 +22,10 @@ const reportsSchema = new mongoose.Schema(
     quiz: {
       type: JSON,
       required: true,
+    },
+    quizId: {
+      type: ObjectId,
+      ref: 'Quizzes',
     },
   },
   {

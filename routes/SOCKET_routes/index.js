@@ -319,6 +319,7 @@ io.on('connection', socket => {
       }));
 
       const reportQuiz = {
+        id: game.quizData.id,
         name: game.quizData.name,
         description: game.quizData.description,
         questions: game.quizData.questions,
@@ -331,6 +332,7 @@ io.on('connection', socket => {
         players: reportPlayers,
         questions,
         quiz: reportQuiz,
+        quizId: game.quizData.id,
       };
 
       const resReport = await Reports.create(report);

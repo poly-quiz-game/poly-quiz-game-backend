@@ -20,6 +20,7 @@ const usersSchema = new mongoose.Schema(
       default: true,
     },
     quizzes: [{ type: ObjectId, ref: 'Quizzes' }],
+    reports: [{ type: ObjectId, ref: 'Reports' }],
   },
   {
     timestamps: true,
