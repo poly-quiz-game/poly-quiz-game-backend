@@ -10,64 +10,109 @@ init.get(
   '/',
   passport.authenticate('jwt', { session: false }),
   async function (req, res) {
-    const quizzes = await Quizzes.find().sort('-_id');
+    const { offset = 0, limit = 10, search, sortBy = '-createdAt' } = req.query;
+    const query = {};
+
+    if (search) {
+      query.name = { $regex: search, $options: 'i' };
+    }
+    query.user = req.user._id;
+
+    const quizzes = await Quizzes.find(query)
+      .skip(Number(offset))
+      .limit(Number(limit))
+      .sort(sortBy);
+
+    const total = await Quizzes.countDocuments(query);
+
     res.json({
       data: quizzes,
+      total,
     });
   }
 );
 
-init.get('/:id', async function (req, res) {
-  try {
-    const quiz = await Quizzes.findOne({ _id: req.params.id }).populate(
-      'reports'
-    );
-    res.json({
-      data: quiz,
-    });
-  } catch (error) {
-    res.json({
-      data: error,
+init.get(
+  '/:id',
+  passport.authenticate('jwt', { session: false }),
+  async function (req, res) {
+    try {
+      const quiz = await Quizzes.findOne({
+        _id: req.params.id,
+        user: req.user._id,
+      }).populate('reports');
+      res.json({
+        data: quiz,
+      });
+    } catch (error) {
+      res.json({
+        data: error,
+      });
+    }
+  }
+);
+
+init.post(
+  '/',
+  passport.authenticate('jwt', { session: false }),
+  async function (req, res) {
+    const { quiz } = req.body;
+    quiz.user = req.user._id;
+    const quizzes = await Quizzes(quiz);
+    quizzes.save((err, data) => {
+      if (err) {
+        console.log(err)
+        res.status(400).json({
+          error: 'không thêm được dữ liệu',
+          err,
+        });
+      }
+      res.json(data);
     });
   }
-});
+);
 
-init.post('/', async function (req, res) {
-  const quizzes = await Quizzes(req.body);
-  quizzes.save((err, data) => {
-    if (err) {
+init.delete(
+  '/:id',
+  passport.authenticate('jwt', { session: false }),
+  async function (req, res) {
+    const quiz = await Quizzes.findOne({
+      _id: req.params.id,
+      user: req.user._id,
+    });
+    quiz.remove((err, deleteItem) => {
+      if (err) {
+        return res.status(400).json({
+          error: 'khong xoa dc san pham',
+        });
+      }
+      res.json({
+        deleteItem,
+        message: 'xoa thanh cong',
+      });
+    });
+  }
+);
+
+init.put(
+  '/:id',
+  passport.authenticate('jwt', { session: false }),
+  async function (req, res) {
+    try {
+      await Quizzes.findOne(
+        {
+          _id: req.params.id,
+          user: req.user._id,
+        },
+        req.body
+      );
+      res.json({ smg: '' });
+    } catch {
       res.status(400).json({
-        error: 'không thêm được dữ liệu',
+        error: 'không sửa được dữ liệu',
       });
     }
-    res.json(data);
-  });
-});
-
-init.delete('/:id', async function (req, res) {
-  let quiz = await Quizzes.findOne({ _id: req.params.id });
-  quiz.remove((err, deleteItem) => {
-    if (err) {
-      return res.status(400).json({
-        error: 'khong xoa dc san pham',
-      });
-    }
-    res.json({
-      deleteItem,
-      message: 'xoa thanh cong',
-    });
-  });
-});
-
-init.put('/:id', async function (req, res) {
-  try {
-    await Quizzes.updateOne({ _id: req.params.id }, req.body);
-    res.json({ smg: '' });
-  } catch {
-    res.status(400).json({
-      error: 'không sửa được dữ liệu',
-    });
   }
-});
+);
 
 module.exports = init;
