@@ -10,7 +10,19 @@ init.get(
   '/',
   passport.authenticate('jwt', { session: false }),
   async function (req, res) {
-    const reports = await Reports.find().sort('-createdAt');
+    const { offset = 0, limit = 10, search, sortBy = '-createdAt' } = req.query;
+    const query = {};
+
+    if (search) {
+      query.name = { $regex: search, $options: 'i' };
+    }
+    query.user = req.user._id;
+
+    const reports = await Reports.find(query)
+      .skip(Number(offset))
+      .limit(Number(limit))
+      .sort(sortBy);
+
     res.json({
       data: reports,
     });
@@ -46,7 +58,7 @@ init.get(
         data: report,
       });
     } catch (error) {
-      console.log(error)
+      console.log(error);
       res.json({
         data: null,
       });
