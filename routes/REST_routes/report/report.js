@@ -22,9 +22,11 @@ init.get(
       .skip(Number(offset))
       .limit(Number(limit))
       .sort(sortBy);
+    const total = await Reports.countDocuments(query);
 
     res.json({
-      data: reports,
+      reports,
+      total,
     });
   }
 );

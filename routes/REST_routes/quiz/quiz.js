@@ -26,7 +26,7 @@ init.get(
     const total = await Quizzes.countDocuments(query);
 
     res.json({
-      data: quizzes,
+      quizzes,
       total,
     });
   }
