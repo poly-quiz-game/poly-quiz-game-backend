@@ -1,0 +1,101 @@
+datasource db {
+    provider = "postgresql"
+    url      = "postgresql://poly_admin:Pass@word1@poly-quiz.postgres.database.azure.com:5432/poly_quiz_db"
+}
+
+generator client {
+    provider = "prisma-client-js"
+}
+
+model User {
+    id      Int      @id @default(autoincrement())
+    email   String   @unique
+    name    String?
+    quizzes Quiz[]
+    reports Report[]
+}
+
+model Quiz {
+    id              Int        @id @default(autoincrement())
+    name            String     @db.VarChar(255)
+    coverImage      String?    @db.VarChar(255)
+    backgroundImage String?    @db.VarChar(255)
+    music           String?    @db.VarChar(255)
+    needLogin       Boolean    @default(false)
+    numberOfPlayer  Int        @default(20)
+    createdAt       DateTime   @default(now())
+    updatedAt       DateTime   @updatedAt
+    user            User       @relation(fields: [userId], references: [id])
+    userId          Int
+    reports         Report[]
+    questions       Question[]
+}
+
+model Question {
+    id            Int      @id @default(autoincrement())
+    question      String   @db.VarChar(255)
+    image         String?  @db.VarChar(255)
+    correctAnswer Int
+    timeLimit     Int
+    quiz          Quiz?    @relation(fields: [quizId], references: [id])
+    quizId        Int?
+    answers       Answer[]
+}
+
+model Answer {
+    index      Int
+    questionId Int
+    answer     String   @db.VarChar(255)
+    question   Question @relation(fields: [questionId], references: [id])
+
+    @@id([index, questionId])
+}
+
+model Report {
+    id              Int              @id @default(autoincrement())
+    name            String           @db.VarChar(255)
+    createdAt       DateTime         @default(now())
+    updatedAt       DateTime         @updatedAt
+    quiz            Quiz             @relation(fields: [quizId], references: [id])
+    quizId          Int
+    user            User             @relation(fields: [userId], references: [id])
+    userId          Int
+    reportQuestions ReportQuestion[]
+    players         Player[]
+}
+
+model Player {
+    id       Int     @id @default(autoincrement())
+    name     String? @db.VarChar(255)
+    score    Int     @default(0)
+    report   Report  @relation(fields: [reportId], references: [id])
+    reportId Int
+}
+
+model PlayerAnswer {
+    playerId   Int
+    questionId Int
+    answer     String? @db.VarChar(255)
+    time       Int     @default(0)
+
+    @@id([playerId, questionId])
+}
+
+model ReportQuestion {
+    id                    Int                    @id @default(autoincrement())
+    image                 String?                @db.VarChar(255)
+    correctAnswer         Int
+    timeLimit             Int
+    report                Report                 @relation(fields: [reportId], references: [id])
+    reportId              Int
+    reportQuestionAnswers ReportQuestionAnswer[]
+}
+
+model ReportQuestionAnswer {
+    index      Int
+    questionId Int
+    answer     String         @db.VarChar(255)
+    question   ReportQuestion @relation(fields: [questionId], references: [id])
+
+    @@id([index, questionId])
+}

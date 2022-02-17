@@ -2,6 +2,9 @@ const express = require('express');
 const init = express.Router();
 const mongoose = require('mongoose');
 const passport = require('passport');
+const { PrismaClient } = require('@prisma/client');
+
+const prisma = new PrismaClient();
 
 require('../../../database/model/quizzes');
 const Quizzes = mongoose.model('Quizzes');
@@ -10,21 +13,38 @@ init.get(
   '/',
   passport.authenticate('jwt', { session: false }),
   async function (req, res) {
-    const { offset = 0, limit = 10, search, sortBy = '-createdAt' } = req.query;
-    const query = {};
+    const {
+      offset = 0,
+      limit = 10,
+      searchField,
+      searchValue,
+      sortField = 'createdAt',
+      sortDirection = 'desc',
+    } = req.query;
 
-    if (search) {
-      query.name = { $regex: search, $options: 'i' };
+    const query = {
+      skip: Number(offset),
+      take: Number(limit),
+      orderBy: {
+        [sortField]: sortDirection,
+      },
+      where: {},
+      include: {
+        questions: true,
+        reports: true,
+      },
+    };
+
+    if (searchField && searchValue) {
+      query.where[searchField] = {
+        contains: [searchValue],
+      };
     }
-    query.user = req.user._id;
 
-    const quizzes = await Quizzes.find(query)
-      .skip(Number(offset))
-      .limit(Number(limit))
-      .sort(sortBy);
+    query.where.userId = { equals: Number(req.user.id) };
 
-    const total = await Quizzes.countDocuments(query);
-
+    const quizzes = await prisma.quiz.findMany(query);
+    const total = await prisma.quiz.count();
     res.json({
       data: quizzes,
       total,
@@ -37,17 +57,26 @@ init.get(
   passport.authenticate('jwt', { session: false }),
   async function (req, res) {
     try {
-      const quiz = await Quizzes.findOne({
-        _id: req.params.id,
-        user: req.user._id,
-      }).populate('reports');
-      res.json({
-        data: quiz,
+      const quiz = await prisma.quiz.findUnique({
+        where: {
+          id: Number(req.params.id),
+        },
+        include: {
+          questions: {
+            include: {
+              answers: true,
+            },
+          },
+          reports: true,
+        },
       });
+      if (quiz.userId === Number(req.user.id)) {
+        res.json(quiz);
+      } else {
+        res.status(404).json({ error: 'Not found' });
+      }
     } catch (error) {
-      res.json({
-        data: error,
-      });
+      res.status(400).json(error);
     }
   }
 );
@@ -56,19 +85,27 @@ init.post(
   '/',
   passport.authenticate('jwt', { session: false }),
   async function (req, res) {
-    const { quiz } = req.body;
-    quiz.user = req.user._id;
-    const quizzes = await Quizzes(quiz);
-    quizzes.save((err, data) => {
-      if (err) {
-        console.log(err)
-        res.status(400).json({
-          error: 'không thêm được dữ liệu',
-          err,
-        });
-      }
-      res.json(data);
-    });
+    try {
+      const { quiz } = req.body;
+      quiz.userId = req.user.id;
+
+      const quizData = {
+        ...quiz,
+        questions: {
+          create: quiz.questions.map(q => ({
+            ...q,
+            type: undefined,
+            answers: {
+              create: q.answers.map((a, i) => ({ answer: a, index: i })),
+            },
+          })),
+        },
+      };
+      const createQuiz = await prisma.quiz.create({ data: quizData });
+      res.json(createQuiz);
+    } catch (error) {
+      res.status(400).json(error);
+    }
   }
 );
 
@@ -76,21 +113,36 @@ init.delete(
   '/:id',
   passport.authenticate('jwt', { session: false }),
   async function (req, res) {
-    const quiz = await Quizzes.findOne({
-      _id: req.params.id,
-      user: req.user._id,
-    });
-    quiz.remove((err, deleteItem) => {
-      if (err) {
-        return res.status(400).json({
-          error: 'khong xoa dc san pham',
-        });
-      }
-      res.json({
-        deleteItem,
-        message: 'xoa thanh cong',
+    try {
+      const quiz = await prisma.quiz.findUnique({
+        where: {
+          id: Number(req.params.id),
+        },
       });
-    });
+      if (!quiz || quiz?.userId !== Number(req.user.id)) {
+        res.status(404).json({ error: 'Not found' });
+        return;
+      }
+
+      await prisma.$queryRaw`DELETE FROM public."Answer" A WHERE A."questionId" IN (SELECT QT.id FROM public."Question" QT JOIN public."Quiz" Q ON Q.id = QT."quizId" WHERE Q.id = ${quiz.id})`;
+
+      await prisma.question.deleteMany({
+        where: {
+          quizId: Number(quiz.id),
+        },
+      });
+
+      await prisma.quiz.delete({
+        where: {
+          id: Number(req.params.id),
+        },
+      });
+      res.json({
+        message: 'Deleted Successfully',
+      });
+    } catch (error) {
+      res.status(400).json(error);
+    }
   }
 );
 
@@ -107,10 +159,8 @@ init.put(
         req.body
       );
       res.json({ smg: '' });
-    } catch {
-      res.status(400).json({
-        error: 'không sửa được dữ liệu',
-      });
+    } catch (error) {
+      res.status(400).json(error);
     }
   }
 );
