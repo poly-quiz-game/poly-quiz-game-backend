@@ -16,35 +16,38 @@ init.get(
     const {
       offset = 0,
       limit = 10,
-      searchField,
-      searchValue,
+      searchField = 'name',
+      search: searchValue,
       sortField = 'createdAt',
       sortDirection = 'desc',
     } = req.query;
 
     const query = {
-      skip: Number(offset),
-      take: Number(limit),
       orderBy: {
         [sortField]: sortDirection,
       },
       where: {},
-      include: {
-        questions: true,
-        reports: true,
-      },
     };
 
     if (searchField && searchValue) {
       query.where[searchField] = {
-        contains: [searchValue],
+        contains: searchValue,
       };
     }
 
     query.where.userId = { equals: Number(req.user.id) };
 
-    const quizzes = await prisma.quiz.findMany(query);
-    const total = await prisma.quiz.count();
+    const quizzes = await prisma.quiz.findMany({
+      ...query,
+      skip: Number(offset),
+      take: Number(limit),
+
+      include: {
+        questions: true,
+        reports: true,
+      },
+    });
+    const total = await prisma.quiz.count(query);
     res.json({
       data: quizzes,
       total,

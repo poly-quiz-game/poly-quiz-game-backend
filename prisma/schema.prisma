@@ -65,30 +65,35 @@ model Report {
 }
 
 model Player {
-    id       Int     @id @default(autoincrement())
-    name     String? @db.VarChar(255)
-    score    Int     @default(0)
-    report   Report  @relation(fields: [reportId], references: [id])
-    reportId Int
+    id            Int            @id @default(autoincrement())
+    name          String?        @db.VarChar(255)
+    score         Int            @default(0)
+    report        Report         @relation(fields: [reportId], references: [id])
+    reportId      Int
+    playerAnswers PlayerAnswer[]
 }
 
 model PlayerAnswer {
-    playerId   Int
-    questionId Int
-    answer     String? @db.VarChar(255)
-    time       Int     @default(0)
+    playerId       Int
+    questionId     Int
+    answer         Int
+    time           Int            @default(0)
+    Player         Player         @relation(fields: [playerId], references: [id])
+    reportQuestion ReportQuestion @relation(fields: [questionId], references: [id])
 
     @@id([playerId, questionId])
 }
 
 model ReportQuestion {
     id                    Int                    @id @default(autoincrement())
+    question              String?                @db.VarChar(255)
     image                 String?                @db.VarChar(255)
     correctAnswer         Int
     timeLimit             Int
     report                Report                 @relation(fields: [reportId], references: [id])
     reportId              Int
     reportQuestionAnswers ReportQuestionAnswer[]
+    playerAnswer          PlayerAnswer[]
 }
 
 model ReportQuestionAnswer {

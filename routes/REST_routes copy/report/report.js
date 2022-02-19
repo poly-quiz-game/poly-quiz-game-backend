@@ -6,6 +6,7 @@ const { PrismaClient } = require('@prisma/client');
 
 const prisma = new PrismaClient();
 
+
 require('../../../database/model/reports');
 const Reports = mongoose.model('Reports');
 
@@ -16,37 +17,34 @@ init.get(
     const {
       offset = 0,
       limit = 10,
-      searchField = 'name',
-      search: searchValue,
+      searchField,
+      searchValue,
       sortField = 'createdAt',
       sortDirection = 'desc',
     } = req.query;
 
     const query = {
+      skip: Number(offset),
+      take: Number(limit),
       orderBy: {
         [sortField]: sortDirection,
       },
       where: {},
+      include: {
+        reportQuestions: true,
+      },
     };
 
     if (searchField && searchValue) {
       query.where[searchField] = {
-        contains: searchValue,
+        contains: [searchValue],
       };
     }
 
     query.where.userId = { equals: Number(req.user.id) };
 
-    const reports = await prisma.report.findMany({
-      ...query,
-      skip: Number(offset),
-      take: Number(limit),
-      include: {
-        reportQuestions: true,
-        players: true,
-      },
-    });
-    const total = await prisma.report.count(query);
+    const reports = await prisma.report.findMany(query);
+    const total = await prisma.report.count();
     res.json({
       data: reports,
       total,
@@ -78,27 +76,15 @@ init.get(
   passport.authenticate('jwt', { session: false }),
   async function (req, res) {
     try {
-      const report = await prisma.report.findUnique({
-        where: {
-          id: Number(req.params.id),
-        },
-        include: {
-          reportQuestions: {
-            include: {
-              reportQuestionAnswers: true,
-            },
-          },
-          players: true,
-        },
+      let report = await Reports.findOne({ _id: req.params.id });
+      res.json({
+        data: report,
       });
-      if (report.userId === Number(req.user.id)) {
-        res.json(report);
-      } else {
-        res.status(404).json({ error: 'Not found' });
-      }
     } catch (error) {
       console.log(error);
-      res.status(400).json(error);
+      res.json({
+        data: null,
+      });
     }
   }
 );
