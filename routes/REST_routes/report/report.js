@@ -54,24 +54,6 @@ init.get(
   }
 );
 
-// init.post(
-//   '/',
-//   passport.authenticate('jwt', { session: false }),
-//   async function (req, res) {
-//     try {
-//       const newQuiz = new Quizzes({
-//         user: req.user._id,
-//         ...req.body.quiz,
-//       });
-//       const response = await newQuiz.save();
-//       res.json(response);
-//     } catch (error) {
-//       res.json({
-//         data: error,
-//       });
-//     }
-//   }
-// );
 
 init.get(
   '/:id',
@@ -88,7 +70,11 @@ init.get(
               reportQuestionAnswers: true,
             },
           },
-          players: true,
+          players: {
+            include: {
+              playerAnswers: true,
+            },
+          },
         },
       });
       if (report.userId === Number(req.user.id)) {
