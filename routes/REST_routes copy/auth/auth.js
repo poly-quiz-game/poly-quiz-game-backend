@@ -1,17 +1,14 @@
 const express = require('express');
 const authRouter = express.Router();
 require('querystring');
-// const mongoose = require('mongoose');
+const mongoose = require('mongoose');
 const passport = require('passport');
-// const LocalStrategy = require('passport-local').Strategy;
+const LocalStrategy = require('passport-local').Strategy;
 const flash = require('connect-flash');
-// const bcrypt = require('bcryptjs');
+const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const JwtStrategy = require('passport-jwt').Strategy;
 const ExtractJwt = require('passport-jwt').ExtractJwt;
-const { PrismaClient } = require('@prisma/client');
-
-const prisma = new PrismaClient();
 
 const { OAuth2Client } = require('google-auth-library');
 const client = new OAuth2Client(
@@ -24,44 +21,46 @@ require('../../../database/model/users');
 
 const secret_key = SESSION_SECRET;
 
-// const Users = mongoose.model('Users');
+const Users = mongoose.model('Users');
 
 authRouter.use(passport.initialize());
 authRouter.use(passport.session());
 authRouter.use(flash());
 
-// passport.use(
-//   new LocalStrategy(function (username, password, done) {
-//     Users.findOne({ username: username }, function (err, user) {
-//       if (err) {
-//         return done(err);
-//       }
-//       if (!user) {
-//         return done(null, false, { message: 'username-incorrect' });
-//       }
-//       if (!bcrypt.compareSync(password, user.password)) {
-//         return done(null, false, { message: 'password-incorrect' });
-//       }
-//       return done(null, user);
-//     });
-//   })
-// );
+passport.use(
+  new LocalStrategy(function (username, password, done) {
+    Users.findOne({ username: username }, function (err, user) {
+      if (err) {
+        return done(err);
+      }
+      if (!user) {
+        return done(null, false, { message: 'username-incorrect' });
+      }
+      if (!bcrypt.compareSync(password, user.password)) {
+        return done(null, false, { message: 'password-incorrect' });
+      }
+      return done(null, user);
+    });
+  })
+);
 
 const opts = {};
 opts.jwtFromRequest = ExtractJwt.fromAuthHeaderAsBearerToken();
 opts.secretOrKey = secret_key;
 
 passport.use(
-  new JwtStrategy(opts, async (jwt_payload, done) => {
-    const user = await prisma.user.findUnique({
-      where: { id: jwt_payload.id },
+  new JwtStrategy(opts, function (jwt_payload, done) {
+    Users.findOne({ _id: jwt_payload._id }, function (err, user) {
+      if (err) {
+        return done(err, false);
+      }
+      if (user) {
+        return done(null, user);
+      } else {
+        return done(null, false);
+        // or you could create a new account
+      }
     });
-    if (user) {
-      return done(null, user);
-    } else {
-      return done(null, false);
-      // or you could create a new account
-    }
   })
 );
 
@@ -102,19 +101,27 @@ authRouter.post('/google-login', async function (req, res) {
     });
     const { email_verified, email } = response.payload;
     if (email_verified) {
-      const user = await prisma.user.findUnique({ where: { email } });
-      if (!user) {
-        return res.status(400).json({ error: "This user doesn't exist" });
-      }
-      user.picture = response.payload.picture;
-      if (!user.name) {
-        user.name = response.payload.name;
-        // user.save();
-      }
-      const token = jwt.sign({ id: user.id }, process.env.JWT_SIGNIN_KEY, {
-        expiresIn: '7d',
+      Users.findOne({ email }).exec((err, user) => {
+        if (err) {
+          return res.status(400).json({ error: "This user doesn't exist" });
+        } else {
+          if (user) {
+            if (!user.name) {
+              user.name = response.payload.name;
+              user.save();
+            }
+            const token = jwt.sign(
+              { _id: user._id },
+              process.env.JWT_SIGNIN_KEY,
+              { expiresIn: '7d' }
+            );
+            // const { _id, name, email } = user;
+            return res.status(200).json({ token, user });
+          } else {
+            return res.status(400).json({ error: "This user doesn't exist" });
+          }
+        }
       });
-      return res.status(200).json({ token, user });
     }
   } catch (error) {
     console.log(error);
@@ -142,39 +149,39 @@ authRouter.post('/google-login', async function (req, res) {
  * @produces application/json
  * @consumes application/json
  */
-// authRouter.post('/register', async (req, res) => {
-//   let { name, username, password } = req.body;
+authRouter.post('/register', async (req, res) => {
+  let { name, username, password } = req.body;
 
-//   if (!name || !username || !password)
-//     return res.status(409).json({
-//       success: false,
-//       message: 'All fields are required!',
-//     });
+  if (!name || !username || !password)
+    return res.status(409).json({
+      success: false,
+      message: 'All fields are required!',
+    });
 
-//   await Users.findOne({ username: username }, async function (err, user) {
-//     if (err) return res.json({ success: false, error: true });
-//     if (user)
-//       return res
-//         .status(303)
-//         .json({ success: false, message: 'Username already exist!' });
+  await Users.findOne({ username: username }, async function (err, user) {
+    if (err) return res.json({ success: false, error: true });
+    if (user)
+      return res
+        .status(303)
+        .json({ success: false, message: 'Username already exist!' });
 
-//     const salt = bcrypt.genSaltSync(10);
-//     const newUser = new Users({
-//       name: name,
-//       username: username,
-//       password: bcrypt.hashSync(password, salt),
-//     });
+    const salt = bcrypt.genSaltSync(10);
+    const newUser = new Users({
+      name: name,
+      username: username,
+      password: bcrypt.hashSync(password, salt),
+    });
 
-//     await newUser.save(function (err) {
-//       if (err) return console.error(err);
-//     });
+    await newUser.save(function (err) {
+      if (err) return console.error(err);
+    });
 
-//     return res.status(201).json({
-//       success: true,
-//       message: 'User is successfully registered!',
-//     });
-//   });
-// });
+    return res.status(201).json({
+      success: true,
+      message: 'User is successfully registered!',
+    });
+  });
+});
 
 /**
  * @typedef ResponseUsernameAvailabilityJSON
@@ -187,25 +194,25 @@ authRouter.post('/google-login', async function (req, res) {
  * @returns {ResponseUsernameAvailabilityJSON.model} 200 - Availability of a username
  * @produces application/json
  */
-// authRouter.get('/username-availability', async (req, res) => {
-//   let username = req.query.username;
-//   if (!username || username === '')
-//     return res.json({
-//       error: true,
-//       message: "Username can't be empty!",
-//     });
+authRouter.get('/username-availability', async (req, res) => {
+  let username = req.query.username;
+  if (!username || username === '')
+    return res.json({
+      error: true,
+      message: "Username can't be empty!",
+    });
 
-//   return Users.findOne({ username: username }, function (err, user) {
-//     if (err)
-//       return res.json({
-//         error: true,
-//       });
+  return Users.findOne({ username: username }, function (err, user) {
+    if (err)
+      return res.json({
+        error: true,
+      });
 
-//     return res.json({
-//       usernameAvailable: !user,
-//     });
-//   });
-// });
+    return res.json({
+      usernameAvailable: !user,
+    });
+  });
+});
 
 authRouter.get(
   '/dashboard',

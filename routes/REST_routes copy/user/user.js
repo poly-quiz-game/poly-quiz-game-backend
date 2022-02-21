@@ -2,34 +2,24 @@ const express = require('express');
 const { body, validationResult } = require('express-validator');
 const init = express.Router();
 const mongoose = require('mongoose');
-const { PrismaClient } = require('@prisma/client');
-
-const prisma = new PrismaClient();
 
 require('../../../database/model/users');
 const Users = mongoose.model('Users');
 
 init.get('/', async function (req, res) {
-  const {
-    offset = 0,
-    limit = 10,
-    search,
-    sortField = 'createdAt',
-    sortDirection = 'desc',
-  } = req.query;
-
-  const users = await prisma.user.findMany({
-    skip: offset,
-    take: limit,
-    include: {
-      quizzes: true,
-    },
-    orderBy: {
-      [sortField]: sortDirection,
-    },
-  });
+  const { offset = 0, limit = 10, search, sortBy = '-createdAt' } = req.query;
+  const query = {};
+  if (search) {
+    query.email = { $regex: search, $options: 'i' };
+  }
+  const users = await Users.find(query)
+    .skip(Number(offset))
+    .limit(Number(limit))
+    .sort(sortBy);
+  const total = await Users.countDocuments(query);
   res.json({
-    users,
+    data: users,
+    total,
   });
 });
 

@@ -1,6 +1,8 @@
 let io = require('socket.io')();
 const mongoose = require('mongoose');
+const { PrismaClient } = require('@prisma/client');
 
+const prisma = new PrismaClient();
 require('../../database/model/quizzes');
 const Quizzes = mongoose.model('Quizzes');
 
@@ -18,14 +20,27 @@ io.on('connection', socket => {
   console.log('ON');
   //When host connects for the first time
   socket.on('host-join', async data => {
-    const quiz = await Quizzes.findOne({ _id: data.id });
+    const quiz = await prisma.quiz.findUnique({
+      where: {
+        id: Number(data.id),
+      },
+      include: {
+        questions: {
+          include: {
+            answers: true,
+          },
+        },
+        reports: true,
+      },
+    });
+    // const quiz = await Quizzes.findOne({ id: data.id });
     //A kahoot was found with the id passed in url
     if (quiz) {
       const gamePin = Math.floor(Math.random() * 90000) + 10000; //new pin for game
       const game = {
         hostSocketId: socket.id,
         pin: gamePin,
-        quizId: quiz._id,
+        quizId: quiz.id,
         isLive: false,
         isQuestionLive: false,
         questionIndex: 0,
@@ -67,7 +82,7 @@ io.on('connection', socket => {
       const { questions } = quizData;
       const question = questions[questionIndex];
 
-      // delete question._doc.correctAnswer;
+      // delete question.correctAnswer;
 
       // Game info to host
       socket.emit('gameQuestion-host', question); // question, answers
@@ -99,8 +114,7 @@ io.on('connection', socket => {
         console.log('Player connected to game');
         const { hostSocketId, quizData } = games.games[i]; //Get the id of host of game
         if (
-          players.getPlayers(hostSocketId).length >=
-          quizData._doc.numberOfPlayer
+          players.getPlayers(hostSocketId).length >= quizData.numberOfPlayer
         ) {
           socket.emit('noGameFound-player'); //Player is sent back to 'join' page because game was not found with pin
           return;
@@ -259,11 +273,11 @@ io.on('connection', socket => {
   });
 
   socket.on('time', function (data) {
-    let time = data.time / 20;
-    time = time * 100;
+    let timeLimit = data.timeLimit / 20;
+    timeLimit = timeLimit * 100;
     const playerid = data.player;
     const player = players.getPlayer(playerid);
-    player.score += time;
+    player.score += timeLimit;
   });
 
   socket.on('timeUp', async function () {
@@ -316,6 +330,7 @@ io.on('connection', socket => {
       const reportPlayers = playersInGame.map(player => ({
         name: player.name,
         score: player.score,
+        answers: player.answers.map(a => ({ answer: a, time: 0 })),
       }));
 
       const reportQuiz = {
@@ -325,22 +340,71 @@ io.on('connection', socket => {
         questions: game.quizData.questions,
         numberOfPlayer: game.quizData.numberOfPlayer,
         needLogin: game.quizData.needLogin,
-    };
-      const report = {
-        user: quizData.user,
+      };
+      // const report = {
+      //   user: quizData.user,
+      //   name: quizData.name,
+      //   players: reportPlayers,
+      //   questions,
+      //   quiz: reportQuiz,
+      //   quizId: game.quizData.id,
+      // };
+
+      const reportData = {
         name: quizData.name,
-        players: reportPlayers,
-        questions,
-        quiz: reportQuiz,
-        quizId: game.quizData.id,
+        quizId: quizData.id,
+        userId: quizData.userId,
+        reportQuestions: {
+          create: quizData.questions.map(
+            ({ image, correctAnswer, timeLimit, answers }) => {
+              return {
+                image,
+                correctAnswer,
+                timeLimit,
+                reportQuestionAnswers: {
+                  create: answers.map(({ index, answer }) => ({
+                    index,
+                    answer,
+                  })),
+                },
+              };
+            }
+          ),
+        },
       };
 
-      const resReport = await Reports.create(report);
-
-      await Quizzes.update(
-        { _id: quizData._id },
-        { $push: { reports: resReport._id } }
+      const createReport = await prisma.report.create({
+        data: reportData,
+        include: {
+          reportQuestions: {
+            include: {
+              reportQuestionAnswers: true,
+            },
+          },
+        },
+      });
+      const playerData = reportPlayers.map(({ name, score, answers }) =>
+        prisma.player.create({
+          data: {
+            name,
+            score,
+            reportId: createReport.id,
+            playerAnswers: {
+              create: answers.map(({ answer, time }, index) => ({
+                answer,
+                time,
+                reportQuestion: {
+                  connect: {
+                    id: createReport.reportQuestions[index].id,
+                  },
+                },
+              })),
+            },
+          },
+        })
       );
+
+      await await Promise.all(playerData);
 
       for (let i = 0; i < playersInGame.length; i++) {
         io.to(playersInGame[i].playerSocketId).emit('GameOverPlayer', {

@@ -1,0 +1,17 @@
+{
+    "sqltools.connections": [
+        {
+            "mysqlOptions": {
+                "authProtocol": "default"
+            },
+            "previewLimit": 50,
+            "server": "poly-quiz.mysql.database.azure.com",
+            "port": 3306,
+            "driver": "MySQL",
+            "database": "poly",
+            "username": "poly_admin",
+            "password": "Pass@word1",
+            "name": "POLY QUIZ MYSQL"
+        }
+    ]
+}
