@@ -31,7 +31,7 @@ let httpServer;
  */
 app.use(
   cors({
-    // origin: `http://localhost:${config.SERVER_PORT || 3000}`,
+    // origin: `http://localhost:${config.PORT || 3000}`,
     origin: function (origin, callback) {
       return callback(null, true);
     },
@@ -81,7 +81,7 @@ if (config.HTTPS_ENABLED) {
 /**
  * Start http server & connect to MongoDB
  */
-httpServer.listen(config.SERVER_PORT || 3000, () => {
+httpServer.listen(config.PORT || 3000, () => {
   mongoose.connect(
     `${CONNECTION_TYPE}://${dbAuthString}${DB_HOST}:${DB_PORT}/${DB_NAME}${DB_QUERY_PARAMS}`,
     {
@@ -89,7 +89,7 @@ httpServer.listen(config.SERVER_PORT || 3000, () => {
       useUnifiedTopology: true,
     },
     () => {
-      console.log(`Server started on port ${config.SERVER_PORT || 3000}`);
+      console.log(`Server started on port ${config.PORT || 3000}`);
     }
   );
 });

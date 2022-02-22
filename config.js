@@ -3,7 +3,7 @@ require('dotenv').config();
 /**
  * Web server port
  */
-const SERVER_PORT = process.env.SERVER_PORT || 3001;
+const PORT = process.env.PORT || 3001;
 
 /**
  * Session settings
@@ -71,7 +71,7 @@ const SWAGGER_SETTINGS = {
 };
 
 module.exports = {
-  SERVER_PORT,
+  PORT,
   SESSION_SECRET,
   CONNECTION_TYPE,
   DB_USERNAME,
