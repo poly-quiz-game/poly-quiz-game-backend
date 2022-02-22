@@ -27,6 +27,7 @@ io.attach(server, {
     origin: '*',
     methods: ['GET', 'POST'],
   },
+  perMessageDeflate: false,
 });
 
 /**
