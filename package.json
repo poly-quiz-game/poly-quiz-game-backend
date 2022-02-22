@@ -4,7 +4,8 @@
   "description": "",
   "main": "server.js",
   "scripts": {
-    "start": "yarn nodemon server.js"
+    "start": "node ./bin/www",
+    "dev": "yarn nodemon server.js"
   },
   "author": "",
   "license": "ISC",
