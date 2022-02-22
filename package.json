@@ -5,7 +5,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node ./bin/www",
-    "dev": "yarn nodemon server.js"
+    "dev": "npx nodemon ./bin/www"
   },
   "author": "",
   "license": "ISC",
