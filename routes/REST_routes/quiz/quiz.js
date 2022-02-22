@@ -49,7 +49,7 @@ init.get(
     });
     const total = await prisma.quiz.count(query);
     res.json({
-      quizzes,
+      data: quizzes,
       total,
     });
   }
