@@ -35,14 +35,22 @@ model Quiz {
 }
 
 model Question {
-    id            Int      @id @default(autoincrement())
-    question      String   @db.VarChar(255)
-    image         String?  @db.VarChar(255)
-    correctAnswer Int
+    id            Int          @id @default(autoincrement())
+    question      String       @db.VarChar(255)
+    image         String?      @db.VarChar(255)
+    type          QuestionType
+    correctAnswer String
     timeLimit     Int
-    quiz          Quiz?    @relation(fields: [quizId], references: [id])
+    quiz          Quiz?        @relation(fields: [quizId], references: [id])
     quizId        Int?
     answers       Answer[]
+}
+
+enum QuestionType {
+    SINGLE_CORRECT_ANSWER
+    MULTIPLE_CORRECT_ANSWER
+    TRUE_FALSE_ANSWER
+    TYPE_ANSWER
 }
 
 model Answer {
@@ -79,7 +87,7 @@ model Player {
 model PlayerAnswer {
     playerId       Int
     questionId     Int
-    answer         Int
+    answer         String
     time           Int            @default(0)
     Player         Player         @relation(fields: [playerId], references: [id])
     reportQuestion ReportQuestion @relation(fields: [questionId], references: [id])
@@ -91,7 +99,7 @@ model ReportQuestion {
     id                    Int                    @id @default(autoincrement())
     question              String?                @db.VarChar(255)
     image                 String?                @db.VarChar(255)
-    correctAnswer         Int
+    correctAnswer         String
     timeLimit             Int
     report                Report                 @relation(fields: [reportId], references: [id])
     reportId              Int

@@ -1,12 +1,3 @@
-// const game = {
-//   hostSocketId,
-//   pin,
-//   quizId,
-//   isLive,
-//   isQuestionLive,
-//   questionIndex,
-// };
-
 class Games {
   constructor() {
     this.games = [];

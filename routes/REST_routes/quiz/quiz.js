@@ -97,7 +97,6 @@ init.post(
         questions: {
           create: quiz.questions.map(q => ({
             ...q,
-            type: undefined,
             answers: {
               create: q.answers.map((a, i) => ({ answer: a, index: i })),
             },

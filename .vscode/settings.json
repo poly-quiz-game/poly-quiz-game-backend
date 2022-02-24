@@ -13,5 +13,9 @@
             "password": "Pass@word1",
             "name": "POLY QUIZ MYSQL"
         }
+    ],
+    "appService.zipIgnorePattern": [
+        "node_modules{,/**}",
+        ".vscode{,/**}"
     ]
 }

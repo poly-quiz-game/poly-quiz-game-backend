@@ -1,13 +1,14 @@
 let io = require('socket.io')();
-const mongoose = require('mongoose');
+// const mongoose = require('mongoose');
+const _ = require('lodash');
 const { PrismaClient } = require('@prisma/client');
 
 const prisma = new PrismaClient();
-require('../../database/model/quizzes');
-const Quizzes = mongoose.model('Quizzes');
+// require('../../database/model/quizzes');
+// const Quizzes = mongoose.model('Quizzes');
 
-require('../../database/model/reports');
-const Reports = mongoose.model('Reports');
+// require('../../database/model/reports');
+// const Reports = mongoose.model('Reports');
 
 const { Games } = require('../../utils/games');
 const games = new Games();
@@ -15,11 +16,35 @@ const games = new Games();
 const { Players } = require('../../utils/players');
 const players = new Players();
 
+const checkIsCorrectAnswer = (answer, { type, correctAnswer }) => {
+  if (type === 'TYPE_ANSWER') {
+    return (
+      correctAnswer.toLowerCase().trim() === `${answer.toLowerCase().trim()}`
+    );
+  }
+  return (
+    _.difference(
+      correctAnswer.split('|').filter(a => a),
+      answer.split('|').filter(a => a)
+    ).length === 0
+  );
+};
+
+const getPlayerCorrectAnswers = (answers, questions) => {
+  return answers.reduce((acc, answer, index) => {
+    const question = questions[index];
+    if (checkIsCorrectAnswer(answer, question)) {
+      return [...acc, index];
+    }
+    return acc;
+  }, []);
+};
+
 //When a connection to server is made from client
 io.on('connection', socket => {
   console.log('ON');
   //When host connects for the first time
-  socket.on('host-join', async data => {
+  socket.on('host-create-lobby', async data => {
     const quiz = await prisma.quiz.findUnique({
       where: {
         id: Number(data.id),
@@ -30,10 +55,8 @@ io.on('connection', socket => {
             answers: true,
           },
         },
-        reports: true,
       },
     });
-    // const quiz = await Quizzes.findOne({ id: data.id });
     //A kahoot was found with the id passed in url
     if (quiz) {
       const gamePin = Math.floor(Math.random() * 90000) + 10000; //new pin for game
@@ -49,94 +72,119 @@ io.on('connection', socket => {
       };
 
       games.addGame(game); //Creates a game with pin and host id
-      socket.join(game.pin); //The host is joining a room based on the pin
+
+      socket.join(game.pin); //  Create socket room for host
+
       console.log('Game Created with pin:', game.pin);
 
       //Sending game pin to host so they can display it for players to join
-      socket.emit('showGamePin', {
+      socket.emit('lobby-info', {
         pin: game.pin,
         hostSocketId: socket.id,
       });
     } else {
-      socket.emit('noGameFound-host');
+      socket.emit('no-quiz-found');
     }
+  });
+
+  //Give game
+  socket.on('get-game-info', () => {
+    const game = games.getGame(socket.id); //Get the game based on socket.id
+    if (!game) {
+      socket.emit('no-game-found');
+      return;
+    }
+    socket.emit('game-info', {
+      pin: game.pin,
+      hostSocketId: socket.id,
+    });
+  });
+
+  socket.on('host-kick-player-on-lobby', ({ hostSocketId, playerSocketId }) => {
+    players.removePlayer(playerSocketId);
+    const playersInGame = players.getPlayers(hostSocketId); //Gets remaining players in game
+
+    io.to(hostSocketId).emit('lobby-players', playersInGame); //Sends data to host to update screen
+    io.to(playerSocketId).emit('get-kicked');
   });
 
   //When the host connects from the game view
-  socket.on('host-join-game', async data => {
+  socket.on('host-start-game', async data => {
     const oldHostSocketId = data.id;
+
     const game = games.getGame(oldHostSocketId); //Gets game with old host id
-    if (game) {
-      game.hostSocketId = socket.id; //Changes the game host id to new host id
-      socket.join(game.pin);
-      const playersInGame = players.getPlayers(oldHostSocketId); //Gets player in game
-
-      for (let i = 0; i < Object.keys(players.players).length; i++) {
-        if (players.players[i].hostSocketId == oldHostSocketId) {
-          players.players[i].hostSocketId = socket.id;
-        }
-      }
-
-      const { quizData, questionIndex } = game;
-
-      const { questions } = quizData;
-      const question = questions[questionIndex];
-
-      // delete question.correctAnswer;
-
-      // Game info to host
-      socket.emit('gameQuestion-host', question); // question, answers
-      //update host screen of num players answered
-      io.to(game.pin).emit('updatePlayersAnswered-host', {
-        playersInGame: playersInGame.length,
-        playersAnswered: 0,
-      });
-      socket.emit('quizInfo-host', quizData); // background, music, need login?
-      socket.emit('gameInfo-host', game); // pin, question live, game live
-
-      // Notify to player that game has started
-      io.to(game.pin).emit('gameStarted-player');
-
-      game.isQuestionLive = true;
-    } else {
-      socket.emit('noGameFound-host'); //No game was found, redirect user
+    if (!game) {
+      socket.emit('no-game-found');
+      return;
     }
+
+    game.isLive = true;
+    game.hostSocketId = socket.id; //Changes the game host id to new host id
+
+    socket.join(game.pin);
+
+    const playersInGame = players.getPlayers(oldHostSocketId); //Gets player in game
+
+    for (let i = 0; i < Object.keys(players.players).length; i++) {
+      if (players.players[i].hostSocketId == oldHostSocketId) {
+        players.players[i].hostSocketId = socket.id;
+      }
+    }
+
+    const { quizData, questionIndex } = game;
+    const { questions } = quizData;
+    const question = questions[questionIndex];
+    console.log('question-info', question);
+    // Game info to host
+    socket.emit('question-info', question, game); // question, answers
+
+    socket.emit('players-answered', {
+      playersInGame: playersInGame.length,
+      playersAnswered: 0,
+    });
+
+    // Notify to player that game has started
+    io.to(game.pin).emit('game-started', { type: question.type });
+
+    game.isQuestionLive = true;
   });
 
   //When player connects for the first time
-  socket.on('player-join', params => {
+  socket.on('player-join-lobby', ({ pin, name }) => {
     let gameFound = false; //If a game is found with pin provided by player
 
-    //For each game in the Games class
     for (let i = 0; i < games.games.length; i++) {
-      //If the pin is equal to one of the game's pin
-      if (params.pin == games.games[i].pin) {
+      const game = games.games[i];
+      if (pin == game.pin) {
         console.log('Player connected to game');
-        const { hostSocketId, quizData } = games.games[i]; //Get the id of host of game
+        const { hostSocketId, quizData } = game; //Get the id of host of game
         if (
-          players.getPlayers(hostSocketId).length >= quizData.numberOfPlayer
+          players.getPlayers(hostSocketId).length >= quizData.numberOfPlayer ||
+          game.isLive ||
+          game.isLocked
         ) {
-          socket.emit('noGameFound-player'); //Player is sent back to 'join' page because game was not found with pin
+          socket.emit('no-game-found'); //Player is sent back to 'join' page because game was not found with pin
           return;
         }
         players.addPlayer({
           hostSocketId,
           playerSocketId: socket.id,
-          name: params.name,
+          name: name,
           score: 0,
           answers: [],
-        }); //add player to game
-        socket.join(params.pin); //Player is joining room based on pin
+        });
+
+        socket.join(pin); //Player is joining room based on pin
 
         const playersInGame = players.getPlayers(hostSocketId); //Getting all players in game
-        io.to(params.pin).emit('updatePlayerLobby-host', playersInGame); //Sending host player data to display
+        io.to(hostSocketId).emit('lobby-players', playersInGame); // number of players in game
         gameFound = true; //Game has been found
       }
     }
 
     //If the game has not been found
     if (gameFound == false) {
-      socket.emit('noGameFound-player'); //Player is sent back to 'join' page because game was not found with pin
+      socket.emit('no-game-found'); //No game found
     }
   });
 
@@ -144,32 +192,38 @@ io.on('connection', socket => {
   socket.on('player-check-game', pin => {
     const game = games.getGameByPin(Number(pin)); //Get the game based on socket.id
     if (!game) {
-      return socket.emit('noGameFound-player');
+      return socket.emit('no-game-found');
     }
-    socket.emit('gameData-player', game); // game found
-  });
-
-  socket.on('host-kick-player', ({ hostSocketId, playerSocketId }) => {
-    players.removePlayer(playerSocketId); //Removing each player from player class
-    const playersInGame = players.getPlayers(hostSocketId); //Gets remaining players in game
-    io.to(hostSocketId).emit('updatePlayerLobby-host', playersInGame); //Sends data to host to update screen
-    io.to(playerSocketId).emit('kickedByHost-player');
+    socket.emit('game-info', game); // game found
   });
 
   //When the player connects from game view
-  socket.on('player-join-game', ({ id: playerSocketId }) => {
+  socket.on('player-join-game', ({ socketId: playerSocketId }) => {
     const player = players.getPlayer(playerSocketId);
     if (player) {
       const game = games.getGame(player.hostSocketId);
+      if (!game) {
+        return socket.emit('no-game-found');
+      }
       socket.join(game.pin);
       player.playerSocketId = socket.id; //Update player id with socket id
 
       const playersInGame = players.getPlayers(game.hostSocketId);
-      socket.emit('gamePlayers-host', playersInGame); // number of players in game
-      socket.emit('playerInfo-player', player); // number of players in game
-      socket.emit('gameInfo-player', { pin: game.pin }); // number of players in game
+
+      io.to(player.hostSocketId).emit('lobby-players', playersInGame); // number of players in game
+      socket.emit('player-info', player, { pin: game.pin });
+
+      const { quizData, questionIndex } = game;
+      const { questions } = quizData;
+      const question = questions[questionIndex];
+      if (!question) {
+        return socket.emit('no-game-found');
+      }
+      socket.emit('question-started', {
+        type: question.type,
+      });
     } else {
-      socket.emit('noGameFound-player'); //No game found
+      socket.emit('no-game-found'); //No game found
     }
   });
 
@@ -178,6 +232,7 @@ io.on('connection', socket => {
     const game = games.getGame(socket.id); //Finding game with socket.id
     //If a game hosted by that id is found, the socket disconnected is a host
     if (game) {
+      // HOST
       //Checking to see if host was disconnected or was sent to game view
       if (game.isLive == false) {
         games.removeGame(socket.id); //Remove the game from games class
@@ -190,10 +245,11 @@ io.on('connection', socket => {
           players.removePlayer(playersInGame[i].playerSocketId); //Removing each player from player class
         }
 
-        io.to(game.pin).emit('hostDisconnect-player'); //Send player back to 'join' screen
+        io.to(game.pin).emit('host-disconnrected'); //Send player back to 'join' screen
         socket.leave(game.pin); //Socket is leaving room
       }
     } else {
+      // PLAYER
       //No game has been found, so it is a player socket that has disconnected
       const player = players.getPlayer(socket.id); //Getting player with socket.id
       //If a player has been found with that id
@@ -206,7 +262,7 @@ io.on('connection', socket => {
           players.removePlayer(socket.id); //Removes player from players class
           const playersInGame = players.getPlayers(hostSocketId); //Gets remaining players in game
 
-          io.to(pin).emit('updatePlayerLobby', playersInGame); //Sends data to host to update screen
+          io.to(player.hostSocketId).emit('lobby-players', playersInGame); // number of players in game
           socket.leave(pin); //Player is leaving the room
         }
       }
@@ -214,56 +270,60 @@ io.on('connection', socket => {
   });
 
   //Sets data in player class to answer from player
-  socket.on('playerAnswer', async function (num) {
+  socket.on('player-answer', async function (answerString) {
     const player = players.getPlayer(socket.id);
     if (!player) {
-      socket.emit('noGameFound-player'); //No game found
+      socket.emit('no-game-found'); //No game found
       return;
     }
     const { hostSocketId } = player;
-
-    const playersInGame = players.getPlayers(hostSocketId);
-    const playerNum = playersInGame.length;
-
     const game = games.getGame(hostSocketId);
     if (!game) {
-      socket.emit('noGameFound-player'); //No game found
+      socket.emit('no-game-found'); //No game found
       return;
     }
+
     if (game.isQuestionLive == true) {
       //if the question is still live
-      player.answers.push(num);
+      player.answers.push(answerString);
 
       const { questionIndex, quizData } = game;
-
       const { questions } = quizData;
-      console.log(questions, questions[questionIndex], questionIndex);
-      const { correctAnswer } = questions[questionIndex];
+      const question = questions[questionIndex];
 
-      //Checks player answer with correct answer
-      if (num == correctAnswer) {
+      const isCorrect = checkIsCorrectAnswer(answerString, question);
+
+      if (isCorrect) {
         player.score += 100;
-        io.to(game.pin).emit('getTime', socket.id);
-        socket.emit('answerResult-player', true);
+        // io.to(game.pin).emit('getTime', socket.id);
+        // socket.emit('answerResult-player', true);
       }
 
+      const playersInGame = players.getPlayers(hostSocketId);
       const playersAnswered = playersInGame.reduce((prev, player) => {
         return (prev += player.answers[questionIndex] !== undefined ? 1 : 0);
       }, 0);
 
       //Checks if all players answered
-      if (playersAnswered == playerNum) {
-        game.isQuestionLive = false; //Question has been ended bc players all answered under time
+      if (playersAnswered === playersInGame.length) {
+        game.isQuestionLive = false;
         const playersInGame = players.getPlayers(hostSocketId);
-        // socket.emit('playerInfo-player', player); // number of players in game
-        io.to(game.pin).emit('questionOver-all', playersInGame, player); //Tell everyone that question is over
-      } else {
-        //update host screen of num players answered
-        io.to(game.hostSocketId).emit('updatePlayersAnswered-host', {
-          playersInGame: playerNum,
-          playersAnswered,
+        io.to(game.hostSocketId).emit('question-over', playersInGame, player); //Tell everyone that question is over
+
+        playersInGame.forEach(player => {
+          const isCorrect = checkIsCorrectAnswer(
+            player.answers[questionIndex],
+            question
+          );
+          io.to(player.playerSocketId).emit('question-over', isCorrect, player); //Tell everyone that question is over
         });
+        return;
       }
+
+      io.to(game.hostSocketId).emit('players-answered', {
+        playersInGame: playersInGame.length,
+        playersAnswered,
+      });
     }
   });
 
@@ -294,220 +354,180 @@ io.on('connection', socket => {
     io.to(game.pin).emit('questionOver-all', playersInGame, correctAnswer);
   });
 
-  socket.on('host-nextQuestion', async () => {
+  socket.on('next-question', async () => {
     const game = games.getGame(socket.id);
-    console.log('game', game);
     if (!game) {
-      socket.emit('noGameFound-host'); //No game found
+      socket.emit('no-game-found'); //No game found
       return;
     }
     game.isQuestionLive = true;
     game.questionIndex += 1;
 
     const { quizData } = game;
-
     const { questions } = quizData;
 
-    // next question
+    // still questions left
     if (questions.length > game.questionIndex) {
       const question = questions[game.questionIndex];
       const playersInGame = players.getPlayers(socket.id);
-      io.to(game.pin).emit('updatePlayersAnswered-host', {
+      io.to(game.pin).emit('players-answered', {
         playersInGame: playersInGame.length,
         playersAnswered: 0,
       });
-      socket.emit('gameQuestion-host', question);
-      socket.emit('gameInfo-host', game); // pin, question live, game live
-    } else {
-      // game over
-      const playersInGame = players.getPlayers(game.hostSocketId);
-      const first = { name: '', score: 0 };
-      const second = { name: '', score: 0 };
-      const third = { name: '', score: 0 };
-      const fourth = { name: '', score: 0 };
-      const fifth = { name: '', score: 0 };
+      socket.emit('question-info', question, game); // question, answers
 
-      const reportPlayers = playersInGame.map(player => ({
-        name: player.name,
-        score: player.score,
-        answers: player.answers.map(a => ({ answer: a, time: 0 })),
-      }));
-
-      const reportQuiz = {
-        id: game.quizData.id,
-        name: game.quizData.name,
-        description: game.quizData.description,
-        questions: game.quizData.questions,
-        numberOfPlayer: game.quizData.numberOfPlayer,
-        needLogin: game.quizData.needLogin,
-      };
-      // const report = {
-      //   user: quizData.user,
-      //   name: quizData.name,
-      //   players: reportPlayers,
-      //   questions,
-      //   quiz: reportQuiz,
-      //   quizId: game.quizData.id,
-      // };
-
-      const reportData = {
-        name: quizData.name,
-        quizId: quizData.id,
-        userId: quizData.userId,
-        reportQuestions: {
-          create: quizData.questions.map(
-            ({ image, correctAnswer, timeLimit, answers }) => {
-              return {
-                image,
-                correctAnswer,
-                timeLimit,
-                reportQuestionAnswers: {
-                  create: answers.map(({ index, answer }) => ({
-                    index,
-                    answer,
-                  })),
-                },
-              };
-            }
-          ),
-        },
-      };
-
-      const createReport = await prisma.report.create({
-        data: reportData,
-        include: {
-          reportQuestions: {
-            include: {
-              reportQuestionAnswers: true,
-            },
-          },
-        },
+      io.to(game.pin).emit('question-started', {
+        type: question.type,
       });
-      const playerData = reportPlayers.map(({ name, score, answers }) =>
-        prisma.player.create({
-          data: {
-            name,
-            score,
-            reportId: createReport.id,
-            playerAnswers: {
-              create: answers.map(({ answer, time }, index) => ({
-                answer,
-                time,
-                reportQuestion: {
-                  connect: {
-                    id: createReport.reportQuestions[index].id,
-                  },
-                },
-              })),
-            },
+      return;
+    }
+    // game over
+    const playersInGame = players.getPlayers(game.hostSocketId);
+    const first = { name: '', score: 0 };
+    const second = { name: '', score: 0 };
+    const third = { name: '', score: 0 };
+    const fourth = { name: '', score: 0 };
+    const fifth = { name: '', score: 0 };
+
+    const reportPlayers = playersInGame.map(player => ({
+      name: player.name,
+      score: player.score,
+      answers: player.answers.map(a => ({ answer: a, time: 0 })),
+    }));
+
+    const reportData = {
+      name: quizData.name,
+      quizId: quizData.id,
+      userId: quizData.userId,
+      reportQuestions: {
+        create: quizData.questions.map(
+          ({ image, correctAnswer, timeLimit, answers }) => {
+            return {
+              image,
+              correctAnswer,
+              timeLimit,
+              reportQuestionAnswers: {
+                create: answers.map(({ index, answer }) => ({
+                  index,
+                  answer,
+                })),
+              },
+            };
+          }
+        ),
+      },
+    };
+
+    const createReport = await prisma.report.create({
+      data: reportData,
+      include: {
+        reportQuestions: {
+          include: {
+            reportQuestionAnswers: true,
           },
-        })
-      );
+        },
+      },
+    });
+    const playerData = reportPlayers.map(({ name, score, answers }) =>
+      prisma.player.create({
+        data: {
+          name,
+          score,
+          reportId: createReport.id,
+          playerAnswers: {
+            create: answers.map(({ answer, time }, index) => ({
+              answer,
+              time,
+              reportQuestion: {
+                connect: {
+                  id: createReport.reportQuestions[index].id,
+                },
+              },
+            })),
+          },
+        },
+      })
+    );
 
-      await await Promise.all(playerData);
+    await Promise.all(playerData);
 
-      for (let i = 0; i < playersInGame.length; i++) {
-        io.to(playersInGame[i].playerSocketId).emit('GameOverPlayer', {
-          ...playersInGame[i],
-          questionLength: questions.length,
-        });
-        if (playersInGame[i].score > fifth.score) {
-          if (playersInGame[i].score > fourth.score) {
-            if (playersInGame[i].score > third.score) {
-              if (playersInGame[i].score > second.score) {
-                if (playersInGame[i].score > first.score) {
-                  //First Place
-                  fifth.name = fourth.name;
-                  fifth.score = fourth.score;
-
-                  fourth.name = third.name;
-                  fourth.score = third.score;
-
-                  third.name = second.name;
-                  third.score = second.score;
-
-                  second.name = first.name;
-                  second.score = first.score;
-
-                  first.name = playersInGame[i].name;
-                  first.score = playersInGame[i].score;
-                } else {
-                  //Second Place
-                  fifth.name = fourth.name;
-                  fifth.score = fourth.score;
-
-                  fourth.name = third.name;
-                  fourth.score = third.score;
-
-                  third.name = second.name;
-                  third.score = second.score;
-
-                  second.name = playersInGame[i].name;
-                  second.score = playersInGame[i].score;
-                }
-              } else {
-                //Third Place
+    for (let i = 0; i < playersInGame.length; i++) {
+      io.to(playersInGame[i].playerSocketId).emit('game-over', {
+        ...playersInGame[i],
+        questionLength: questions.length,
+      });
+      if (playersInGame[i].score > fifth.score) {
+        if (playersInGame[i].score > fourth.score) {
+          if (playersInGame[i].score > third.score) {
+            if (playersInGame[i].score > second.score) {
+              if (playersInGame[i].score > first.score) {
+                //First Place
                 fifth.name = fourth.name;
                 fifth.score = fourth.score;
 
                 fourth.name = third.name;
                 fourth.score = third.score;
 
-                third.name = playersInGame[i].name;
-                third.score = playersInGame[i].score;
+                third.name = second.name;
+                third.score = second.score;
+
+                second.name = first.name;
+                second.score = first.score;
+
+                first.name = playersInGame[i].name;
+                first.score = playersInGame[i].score;
+              } else {
+                //Second Place
+                fifth.name = fourth.name;
+                fifth.score = fourth.score;
+
+                fourth.name = third.name;
+                fourth.score = third.score;
+
+                third.name = second.name;
+                third.score = second.score;
+
+                second.name = playersInGame[i].name;
+                second.score = playersInGame[i].score;
               }
             } else {
-              //Fourth Place
+              //Third Place
               fifth.name = fourth.name;
               fifth.score = fourth.score;
 
-              fourth.name = playersInGame[i].name;
-              fourth.score = playersInGame[i].score;
+              fourth.name = third.name;
+              fourth.score = third.score;
+
+              third.name = playersInGame[i].name;
+              third.score = playersInGame[i].score;
             }
           } else {
-            //Fifth Place
-            fifth.name = playersInGame[i].name;
-            fifth.score = playersInGame[i].score;
+            //Fourth Place
+            fifth.name = fourth.name;
+            fifth.score = fourth.score;
+
+            fourth.name = playersInGame[i].name;
+            fourth.score = playersInGame[i].score;
           }
+        } else {
+          //Fifth Place
+          fifth.name = playersInGame[i].name;
+          fifth.score = playersInGame[i].score;
         }
       }
-
-      io.to(game.pin).emit(
-        'GameOver-host',
-        {
-          num1: first.name,
-          num2: second.name,
-          num3: third.name,
-          num4: fourth.name,
-          num5: fifth.name,
-        },
-        playersInGame
-      );
     }
 
-    io.to(game.pin).emit('nextQuestionPlayer');
-  });
-
-  //When the host starts the game
-  socket.on('startGame', () => {
-    const game = games.getGame(socket.id); //Get the game based on socket.id
-    if (!game) {
-      socket.emit('noGameFound-host');
-      return;
-    }
-    game.isLive = true;
-    socket.emit('gameStarted', game.hostSocketId); //Tell player and host that game has started
-    socket.emit('gameInfo-host', game); // pin, question live, game live
-  });
-
-  //Give game
-  socket.on('host-getGame', () => {
-    const game = games.getGame(socket.id); //Get the game based on socket.id
-    if (!game) {
-      socket.emit('noGameFound-host');
-      return;
-    }
-    socket.emit('gameData-host', game);
+    io.to(game.pin).emit(
+      'game-over-host',
+      {
+        num1: first.name,
+        num2: second.name,
+        num3: third.name,
+        num4: fourth.name,
+        num5: fifth.name,
+      },
+      playersInGame
+    );
   });
 });
 
