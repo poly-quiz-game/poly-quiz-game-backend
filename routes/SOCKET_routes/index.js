@@ -75,8 +75,6 @@ io.on('connection', socket => {
 
       socket.join(game.pin); //  Create socket room for host
 
-      console.log('Game Created with pin:', game.pin);
-
       //Sending game pin to host so they can display it for players to join
       socket.emit('lobby-info', {
         pin: game.pin,
@@ -134,7 +132,7 @@ io.on('connection', socket => {
     const { quizData, questionIndex } = game;
     const { questions } = quizData;
     const question = questions[questionIndex];
-    console.log('question-info', question);
+
     // Game info to host
     socket.emit('question-info', question, game); // question, answers
 
@@ -285,7 +283,7 @@ io.on('connection', socket => {
 
     if (game.isQuestionLive == true) {
       //if the question is still live
-      player.answers.push(answerString);
+      player.answers.push({ answer: answerString });
 
       const { questionIndex, quizData } = game;
       const { questions } = quizData;
@@ -294,8 +292,8 @@ io.on('connection', socket => {
       const isCorrect = checkIsCorrectAnswer(answerString, question);
 
       if (isCorrect) {
-        player.score += 100;
-        // io.to(game.pin).emit('getTime', socket.id);
+        // player.score += 100;
+        io.to(game.pin).emit('get-player-answered-time', socket.id, question);
         // socket.emit('answerResult-player', true);
       }
 
@@ -307,15 +305,14 @@ io.on('connection', socket => {
       //Checks if all players answered
       if (playersAnswered === playersInGame.length) {
         game.isQuestionLive = false;
-        const playersInGame = players.getPlayers(hostSocketId);
-        io.to(game.hostSocketId).emit('question-over', playersInGame, player); //Tell everyone that question is over
+        io.to(game.hostSocketId).emit('question-over'); //Tell everyone that question is over
 
         playersInGame.forEach(player => {
           const isCorrect = checkIsCorrectAnswer(
-            player.answers[questionIndex],
+            player.answers[questionIndex].answer,
             question
           );
-          io.to(player.playerSocketId).emit('question-over', isCorrect, player); //Tell everyone that question is over
+          io.to(player.playerSocketId).emit('question-over', isCorrect); //Tell everyone that question is over
         });
         return;
       }
@@ -327,31 +324,57 @@ io.on('connection', socket => {
     }
   });
 
-  socket.on('getScore', function () {
+  socket.on('get-player-score', () => {
     const player = players.getPlayer(socket.id);
-    socket.emit('newScore', player.score);
+    const playersInGame = players.getPlayers(player.hostSocketId); //Getting all players in the game
+    let rank = 1;
+    let score = 0;
+    [...playersInGame]
+      .sort((a, b) => b.score - a.score)
+      .forEach((player, index) => {
+        if (player.playerSocketId === socket.id) {
+          rank = index + 1;
+          score = player.score;
+        }
+      });
+    socket.emit('player-score', { score, rank });
   });
 
-  socket.on('time', function (data) {
-    let timeLimit = data.timeLimit / 20;
-    timeLimit = timeLimit * 100;
-    const playerid = data.player;
-    const player = players.getPlayer(playerid);
-    player.score += timeLimit;
+  socket.on('get-score-board', () => {
+    const playersInGame = players.getPlayers(socket.id); //Getting all players in the game
+    socket.emit('score-board', playersInGame);
   });
 
-  socket.on('timeUp', async function () {
+  socket.on(
+    'player-answered-time',
+    ({ time, playerId, question: { timeLimit } }) => {
+      const player = players.getPlayer(playerId);
+      const game = games.getGame(player.hostSocketId);
+      const score = (time / (timeLimit / 1000)) * 1000;
+      const { questionIndex } = game;
+      player.answers[questionIndex].time = time;
+      player.score += score;
+    }
+  );
+
+  socket.on('time-up', async function () {
     const game = games.getGame(socket.id);
-    const playersInGame = players.getPlayers(game.hostSocketId);
-
     game.isQuestionLive = false;
-
+    const playersInGame = players.getPlayers(game.hostSocketId);
     const { questionIndex, quizData } = game;
+    const { questions } = quizData;
+    const question = questions[questionIndex];
 
-    const questions = quizData;
-    const correctAnswer = questions[questionIndex].correctAnswer;
-
-    io.to(game.pin).emit('questionOver-all', playersInGame, correctAnswer);
+    playersInGame.forEach(player => {
+      if (!player.answers[questionIndex]) {
+        player.answers.push({ answer: '', time: 0 });
+      }
+      const isCorrect = player.answers[questionIndex].answer
+        ? checkIsCorrectAnswer(player.answers[questionIndex].answer, question)
+        : false;
+      io.to(player.playerSocketId).emit('question-over', isCorrect); //Tell everyone that question is over
+    });
+    io.to(game.hostSocketId).emit('question-over', playersInGame); //Tell everyone that question is over
   });
 
   socket.on('next-question', async () => {
@@ -392,20 +415,21 @@ io.on('connection', socket => {
     const reportPlayers = playersInGame.map(player => ({
       name: player.name,
       score: player.score,
-      answers: player.answers.map(a => ({ answer: a, time: 0 })),
+      answers: player.answers.map(a => ({ answer: a.answer, time: a.time })),
     }));
-
     const reportData = {
       name: quizData.name,
       quizId: quizData.id,
       userId: quizData.userId,
       reportQuestions: {
         create: quizData.questions.map(
-          ({ image, correctAnswer, timeLimit, answers }) => {
+          ({ image, correctAnswer, timeLimit, question, type, answers }) => {
             return {
               image,
               correctAnswer,
               timeLimit,
+              question,
+              type,
               reportQuestionAnswers: {
                 create: answers.map(({ index, answer }) => ({
                   index,

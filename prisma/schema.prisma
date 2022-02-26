@@ -97,8 +97,9 @@ model PlayerAnswer {
 
 model ReportQuestion {
     id                    Int                    @id @default(autoincrement())
-    question              String?                @db.VarChar(255)
+    question              String                 @db.VarChar(255)
     image                 String?                @db.VarChar(255)
+    type                  QuestionType
     correctAnswer         String
     timeLimit             Int
     report                Report                 @relation(fields: [reportId], references: [id])
