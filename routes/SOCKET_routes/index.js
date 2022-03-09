@@ -16,10 +16,11 @@ const games = new Games();
 const { Players } = require('../../utils/players');
 const players = new Players();
 
-const checkIsCorrectAnswer = (answer, { type, correctAnswer }) => {
+const checkIsCorrectAnswer = (answer, { type, correctAnswer, answers }) => {
   if (type === 'TYPE_ANSWER') {
     return (
-      correctAnswer.toLowerCase().trim() === `${answer.toLowerCase().trim()}`
+      answers[correctAnswer].answer.toLowerCase().trim() ===
+      `${answer.toLowerCase().trim()}`
     );
   }
   return (
@@ -45,6 +46,8 @@ io.on('connection', socket => {
   console.log('ON');
   //When host connects for the first time
   socket.on('host-create-lobby', async data => {
+    if (!data.id) return;
+
     const quiz = await prisma.quiz.findUnique({
       where: {
         id: Number(data.id),
@@ -550,7 +553,8 @@ io.on('connection', socket => {
         num4: fourth.name,
         num5: fifth.name,
       },
-      playersInGame
+      playersInGame,
+      createReport.id
     );
   });
 });
