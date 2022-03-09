@@ -70,7 +70,16 @@ init.get(
               answers: true,
             },
           },
-          reports: true,
+          reports: {
+            include: {
+              reportQuestions: true,
+              players: {
+                include: {
+                  playerAnswers: true,
+                }
+              }
+            },
+          }
         },
       });
       if (quiz.userId === Number(req.user.id)) {

@@ -6,6 +6,11 @@ const prisma = new PrismaClient();
 
 init.get('/', async function (req, res) {
   try {
+    const { start, end } = req.query;
+
+    const arrayCount = await prisma.$queryRaw`SELECT Date("createdAt"), count("createdAt") FROM "Report" WHERE "createdAt" > ${new Date(start)} AND "createdAt" < ${new Date(end)} GROUP BY Date("createdAt")`;
+    
+    console.log(arrayCount,'aaaaa')
     const TYPE_ANSWER = {
       where: { type: 'TYPE_ANSWER' },
     };
@@ -28,6 +33,7 @@ init.get('/', async function (req, res) {
     const TRUE_FALSE_ANSWER_COUNT = await prisma.question.count(
       TRUE_FALSE_ANSWER
     );
+
     res.json({
       data: {
         questionType: {
@@ -36,6 +42,7 @@ init.get('/', async function (req, res) {
           SINGLE_CORRECT_ANSWER: SINGLE_CORRECT_ANSWER_COUNT,
           TRUE_FALSE_ANSWER: TRUE_FALSE_ANSWER_COUNT,
         },
+        arrayCount,
       },
     });
   } catch (error) {
