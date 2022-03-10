@@ -17,5 +17,7 @@
     "appService.zipIgnorePattern": [
         "node_modules{,/**}",
         ".vscode{,/**}"
-    ]
+    ],
+    "appService.defaultWebAppToDeploy": "/subscriptions/b874e699-ecde-478c-9acd-533241eb47fe/resourceGroups/cloud-shell-storage-southeastasia/providers/Microsoft.Web/sites/poly-quiz-backend",
+    "appService.deploySubpath": "."
 }

@@ -3,6 +3,23 @@ let io = require('socket.io')();
 const _ = require('lodash');
 const { PrismaClient } = require('@prisma/client');
 
+const { OAuth2Client } = require('google-auth-library');
+const client = new OAuth2Client(
+  '767848981447-tebf1tn4llljl98lddf4u4fp7666nqtg.apps.googleusercontent.com'
+);
+
+const SINGLE_CORRECT_ANSWER = 'SINGLE_CORRECT_ANSWER';
+const MULTIPLE_CORRECT_ANSWER = 'MULTIPLE_CORRECT_ANSWER';
+const TRUE_FALSE_ANSWER = 'TRUE_FALSE_ANSWER';
+const TYPE_ANSWER = 'TYPE_ANSWER';
+
+const questionTypes = {
+  [SINGLE_CORRECT_ANSWER]: SINGLE_CORRECT_ANSWER,
+  [MULTIPLE_CORRECT_ANSWER]: MULTIPLE_CORRECT_ANSWER,
+  [TRUE_FALSE_ANSWER]: TRUE_FALSE_ANSWER,
+  [TYPE_ANSWER]: TYPE_ANSWER,
+};
+
 const prisma = new PrismaClient();
 // require('../../database/model/quizzes');
 // const Quizzes = mongoose.model('Quizzes');
@@ -23,12 +40,28 @@ const checkIsCorrectAnswer = (answer, { type, correctAnswer, answers }) => {
       `${answer.toLowerCase().trim()}`
     );
   }
+
   return (
     _.difference(
       correctAnswer.split('|').filter(a => a),
       answer.split('|').filter(a => a)
     ).length === 0
   );
+};
+
+const calculateScore = ({ answerString, question }) => {
+  if (question.type === questionTypes.MULTIPLE_CORRECT_ANSWER) {
+    return (
+      question.correctAnswer.split('|').filter(function (x) {
+        return answerString.split('|').indexOf(x) !== -1;
+      }).length / question.correctAnswer.split('|').length
+    );
+  }
+  const isCorrect = checkIsCorrectAnswer(answerString, question);
+  if (isCorrect) {
+    return 1;
+  }
+  return 0;
 };
 
 const getPlayerCorrectAnswers = (answers, questions) => {
@@ -135,6 +168,10 @@ io.on('connection', socket => {
     const { quizData, questionIndex } = game;
     const { questions } = quizData;
     const question = questions[questionIndex];
+    if (!question) {
+      socket.emit('no-game-found');
+      return;
+    }
 
     // Game info to host
     socket.emit('question-info', question, game); // question, answers
@@ -151,13 +188,34 @@ io.on('connection', socket => {
   });
 
   //When player connects for the first time
-  socket.on('player-join-lobby', ({ pin, name }) => {
+  socket.on('player-join-lobby', async ({ pin, name, tokenId }) => {
     let gameFound = false; //If a game is found with pin provided by player
 
     for (let i = 0; i < games.games.length; i++) {
       const game = games.games[i];
       if (pin == game.pin) {
-        console.log('Player connected to game');
+        const player = { name };
+        if (game.quizData.needLogin) {
+          if (!tokenId) {
+            socket.emit('no-game-found'); //No game found
+            return;
+          }
+          try {
+            const response = await client.verifyIdToken({
+              idToken: tokenId,
+              audience: process.env.O2AUTH_GOOGLE_CLIENT_ID,
+              scopes: ['https://www.googleapis.com/auth/cloud-platform'],
+            });
+            player.name = response.payload.name;
+            player.email = response.payload.email;
+          } catch (error) {
+            console.log(error);
+            socket.emit('no-game-found'); //No game found
+            return;
+          }
+        }
+        console.log('Player connected to game', player);
+
         const { hostSocketId, quizData } = game; //Get the id of host of game
         if (
           players.getPlayers(hostSocketId).length >= quizData.numberOfPlayer ||
@@ -168,15 +226,16 @@ io.on('connection', socket => {
           return;
         }
         players.addPlayer({
+          ...player,
           hostSocketId,
           playerSocketId: socket.id,
-          name: name,
           score: 0,
           answers: [],
         });
 
         socket.join(pin); //Player is joining room based on pin
 
+        socket.emit('joined-lobby');
         const playersInGame = players.getPlayers(hostSocketId); //Getting all players in game
         io.to(hostSocketId).emit('lobby-players', playersInGame); // number of players in game
         gameFound = true; //Game has been found
@@ -292,13 +351,14 @@ io.on('connection', socket => {
       const { questions } = quizData;
       const question = questions[questionIndex];
 
-      const isCorrect = checkIsCorrectAnswer(answerString, question);
-
-      if (isCorrect) {
-        // player.score += 100;
-        io.to(game.pin).emit('get-player-answered-time', socket.id, question);
-        // socket.emit('answerResult-player', true);
-      }
+      // if (isCorrect) {
+      io.to(game.pin).emit(
+        'get-player-answered-time',
+        socket.id,
+        question,
+        answerString
+      );
+      // }
 
       const playersInGame = players.getPlayers(hostSocketId);
       const playersAnswered = playersInGame.reduce((prev, player) => {
@@ -350,10 +410,14 @@ io.on('connection', socket => {
 
   socket.on(
     'player-answered-time',
-    ({ time, playerId, question: { timeLimit } }) => {
+    ({ time, playerId, question, answerString }) => {
       const player = players.getPlayer(playerId);
       const game = games.getGame(player.hostSocketId);
-      const score = (time / (timeLimit / 1000)) * 1000;
+      const { timeLimit } = question;
+
+      // const isCorrect = checkIsCorrectAnswer(answerString, question);
+      const ratio = calculateScore({ time, timeLimit, answerString, question });
+      const score = ratio * (time / (timeLimit / 1000)) * 1000;
       const { questionIndex } = game;
       player.answers[questionIndex].time = time;
       player.score += score;
@@ -417,6 +481,7 @@ io.on('connection', socket => {
 
     const reportPlayers = playersInGame.map(player => ({
       name: player.name,
+      email: player.email,
       score: player.score,
       answers: player.answers.map(a => ({ answer: a.answer, time: a.time })),
     }));
@@ -455,10 +520,11 @@ io.on('connection', socket => {
         },
       },
     });
-    const playerData = reportPlayers.map(({ name, score, answers }) =>
+    const playerData = reportPlayers.map(({ name, email, score, answers }) =>
       prisma.player.create({
         data: {
           name,
+          email,
           score,
           reportId: createReport.id,
           playerAnswers: {
@@ -554,7 +620,7 @@ io.on('connection', socket => {
         num5: fifth.name,
       },
       playersInGame,
-      createReport.id
+      { ...quizData, players: reportPlayers.sort((a, b) => b.score - a.score) }
     );
   });
 });

@@ -1,13 +1,9 @@
 const express = require('express');
 const init = express.Router();
-const mongoose = require('mongoose');
 const passport = require('passport');
 const { PrismaClient } = require('@prisma/client');
 
 const prisma = new PrismaClient();
-
-require('../../../database/model/quizzes');
-const Quizzes = mongoose.model('Quizzes');
 
 init.get(
   '/',
@@ -153,15 +149,55 @@ init.put(
   passport.authenticate('jwt', { session: false }),
   async function (req, res) {
     try {
-      await Quizzes.findOne(
-        {
-          _id: req.params.id,
-          user: req.user._id,
+      const quiz = await prisma.quiz.findUnique({
+        where: {
+          id: Number(req.params.id),
         },
-        req.body
-      );
-      res.json({ smg: '' });
+      });
+      if (!quiz || quiz?.userId !== Number(req.user.id)) {
+        res.status(404).json({ error: 'Not found' });
+        return;
+      }
+
+      const {
+        quiz: { questions, ...quizData },
+      } = req.body;
+      const updateQuiz = await prisma.quiz.update({
+        where: {
+          id: Number(req.params.id),
+        },
+        data: {
+          ...quizData,
+          questions: {
+            update: questions.map(q => ({
+              where: {
+                id: Number(q.id),
+              },
+              data: {
+                ...q,
+                answers: {
+                  update: q.answers.map((answer, i) => ({
+                    where: {
+                      index_questionId: {
+                        questionId: Number(q.id),
+                        index: i,
+                      },
+                    },
+                    data: {
+                      answer,
+                      index: i,
+                    },
+                  })),
+                },
+              },
+            })),
+          },
+        },
+      });
+
+      res.json(updateQuiz);
     } catch (error) {
+      console.log(error);
       res.status(400).json(error);
     }
   }

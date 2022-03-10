@@ -24,6 +24,7 @@ model Quiz {
     coverImage      String?    @db.VarChar(255)
     backgroundImage String?    @db.VarChar(255)
     music           String?    @db.VarChar(255)
+    description     String?    @db.VarChar(255)
     needLogin       Boolean    @default(false)
     numberOfPlayer  Int        @default(20)
     createdAt       DateTime   @default(now())
@@ -78,6 +79,7 @@ model Report {
 model Player {
     id            Int            @id @default(autoincrement())
     name          String?        @db.VarChar(255)
+    email         String?        @db.VarChar(255)
     score         Int            @default(0)
     report        Report         @relation(fields: [reportId], references: [id])
     reportId      Int
