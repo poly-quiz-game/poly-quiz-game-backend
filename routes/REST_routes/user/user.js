@@ -100,8 +100,8 @@ init.delete('/:id', async function (req, res) {
 init.post('/', body('email').isEmail(), async function (req, res) {
   try {
     const user = req.body;
-    const createQuiz = await prisma.user.create({ data: user });
-    res.json(createQuiz);
+    const createUser = await prisma.user.create({ data: user });
+    res.json(createUser);
   } catch (error) {
     res.status(400).json({
       error: 'can not create user',
@@ -114,16 +114,32 @@ init.put('/:id', body('email').isEmail(), async function (req, res) {
   if (!errors.isEmpty() && errors.errors[0].param === 'email') {
     return res.status(400).json('Invalid email address. Please try again.');
   }
-  let user = await Users.findOne({ _id: req.params.id });
-  user.isActive = req.body.isActive;
-  user.save((err, data) => {
-    if (err || !user) {
-      res.status(400).json({
-        error: 'User not found id',
+  try {
+    const user = await prisma.user.findUnique({
+      where: {
+        id: Number(req.params.id),
+      },
+    });
+    if (!user) {
+      return res.status(400).json({
+        error: 'User not found',
       });
     }
-    res.json(data);
-  });
+
+    const updateUser = await prisma.user.update({
+      where: {
+        id: Number(req.params.id),
+      },
+      data: {
+        ...req.body,
+      },
+    });
+    res.json(updateUser);
+  } catch (error) {
+    res.status(400).json({
+      error: 'can not update user',
+    });
+  }
 });
 
 module.exports = init;
