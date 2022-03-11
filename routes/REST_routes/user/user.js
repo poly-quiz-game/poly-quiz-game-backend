@@ -1,13 +1,9 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
 const init = express.Router();
-const mongoose = require('mongoose');
 const { PrismaClient } = require('@prisma/client');
 
 const prisma = new PrismaClient();
-
-require('../../../database/model/users');
-const Users = mongoose.model('Users');
 
 init.get('/', async function (req, res) {
   const {
@@ -21,7 +17,7 @@ init.get('/', async function (req, res) {
 
   const query = {
     orderBy: {
-      [sortField]: sortDirection,
+      [sortField || 'createdAt']: sortDirection,
     },
     where: {},
   };
@@ -39,7 +35,7 @@ init.get('/', async function (req, res) {
       reports: true,
     },
     orderBy: {
-      [sortField]: sortDirection,
+      [sortField || 'createdAt']: sortDirection,
     },
   });
 
@@ -81,21 +77,6 @@ init.get('/:id', async function (req, res) {
   }
 });
 
-init.delete('/:id', async function (req, res) {
-  try {
-    let user = await Users.findOne({ _id: req.params.id });
-    user.remove();
-    res.json({
-      data: user,
-      error: 'Delete successfully',
-    });
-  } catch (error) {
-    res.json({
-      data: null,
-      message: 'Delete errors',
-    });
-  }
-});
 
 init.post('/', body('email').isEmail(), async function (req, res) {
   try {

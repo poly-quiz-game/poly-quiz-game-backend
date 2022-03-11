@@ -133,7 +133,6 @@ init.post(
           })),
         },
       };
-      console.log(333);
       const createQuiz = await prisma.quiz.create({ data: quizData });
       res.json(createQuiz);
     } catch (error) {
