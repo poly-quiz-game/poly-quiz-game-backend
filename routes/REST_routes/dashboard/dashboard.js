@@ -1,29 +1,31 @@
 const express = require('express');
 const init = express.Router();
 const { PrismaClient } = require('@prisma/client');
-
 const prisma = new PrismaClient();
 
 init.get('/', async function (req, res) {
   try {
     const { start, end } = req.query;
 
-    const arrayCount = await prisma.$queryRaw`SELECT Date("createdAt"), count("createdAt") FROM "Report" WHERE "createdAt" > ${new Date(start)} AND "createdAt" < ${new Date(end)} GROUP BY Date("createdAt")`;
-    
-    console.log(arrayCount,'aaaaa')
+    const arrayCount =
+      await prisma.$queryRaw`SELECT Date("createdAt"), count("createdAt") FROM "Report" WHERE "createdAt" > ${new Date(
+        start
+      )} AND "createdAt" < ${new Date(end)} GROUP BY Date("createdAt")`;
+
     const TYPE_ANSWER = {
-      where: { type: 'TYPE_ANSWER' },
+      where: { type: { name: 'TYPE_ANSWER' } },
     };
     const MULTIPLE_CORRECT_ANSWER = {
-      where: { type: 'MULTIPLE_CORRECT_ANSWER' },
+      where: { type: { name: 'MULTIPLE_CORRECT_ANSWER' } },
     };
     const SINGLE_CORRECT_ANSWER = {
-      where: { type: 'SINGLE_CORRECT_ANSWER' },
+      where: { type: { name: 'SINGLE_CORRECT_ANSWER' } },
     };
     const TRUE_FALSE_ANSWER = {
-      where: { type: 'TRUE_FALSE_ANSWER' },
+      where: { type: { name: 'TRUE_FALSE_ANSWER' } },
     };
     const TYPE_ANSWER_COUNT = await prisma.question.count(TYPE_ANSWER);
+
     const MULTIPLE_CORRECT_ANSWER_COUNT = await prisma.question.count(
       MULTIPLE_CORRECT_ANSWER
     );

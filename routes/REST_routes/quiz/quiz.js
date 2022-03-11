@@ -64,6 +64,7 @@ init.get(
           questions: {
             include: {
               answers: true,
+              type: true,
             },
           },
           reports: {
@@ -72,10 +73,10 @@ init.get(
               players: {
                 include: {
                   playerAnswers: true,
-                }
-              }
+                },
+              },
             },
-          }
+          },
         },
       });
       if (quiz.userId === Number(req.user.id)) {
@@ -92,6 +93,29 @@ init.get(
 init.post(
   '/',
   passport.authenticate('jwt', { session: false }),
+  async function (req, res, next) {
+    try {
+      const { quiz } = req.body;
+      quiz.userId = req.user.id;
+
+      quiz.questions = await Promise.all(
+        quiz.questions.map(async question => {
+          const questionType = await prisma.questionType.findFirst({
+            where: { name: question?.type?.name },
+          });
+          if (!questionType || questionType.isActive === false) {
+            throw new Error('Question type not found');
+          }
+          return { ...question, questionTypeId: questionType.id };
+        })
+      );
+
+      next();
+    } catch (error) {
+      res.status(400).json(error);
+    }
+  },
+
   async function (req, res) {
     try {
       const { quiz } = req.body;
@@ -100,17 +124,20 @@ init.post(
       const quizData = {
         ...quiz,
         questions: {
-          create: quiz.questions.map(q => ({
+          create: quiz.questions.map(({ type, questionTypeId, ...q }) => ({
             ...q,
+            questionTypeId,
             answers: {
               create: q.answers.map((a, i) => ({ answer: a, index: i })),
             },
           })),
         },
       };
+      console.log(333);
       const createQuiz = await prisma.quiz.create({ data: quizData });
       res.json(createQuiz);
     } catch (error) {
+      console.log(error);
       res.status(400).json(error);
     }
   }
@@ -178,12 +205,13 @@ init.put(
         data: {
           ...quizData,
           questions: {
-            update: questions.map(q => ({
+            update: questions.map(({ type, ...q }) => ({
               where: {
                 id: Number(q.id),
               },
               data: {
                 ...q,
+                questionTypeId: type.id,
                 answers: {
                   update: q.answers.map((answer, i) => ({
                     where: {

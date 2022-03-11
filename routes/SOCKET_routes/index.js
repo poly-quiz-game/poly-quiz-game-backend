@@ -89,6 +89,7 @@ io.on('connection', socket => {
         questions: {
           include: {
             answers: true,
+            type: true,
           },
         },
       },
@@ -497,7 +498,7 @@ io.on('connection', socket => {
               correctAnswer,
               timeLimit,
               question,
-              type,
+              questionTypeId: type.id,
               reportQuestionAnswers: {
                 create: answers.map(({ index, answer }) => ({
                   index,

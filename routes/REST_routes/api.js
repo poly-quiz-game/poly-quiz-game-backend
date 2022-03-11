@@ -13,7 +13,7 @@ const dashboard = require('./dashboard/dashboard');
 api.use('/auth', authRoute);
 api.use('/quiz', quizRoute);
 api.use('/user', userRoute);
-api.use('/question-type', questionTypeRoute);
+api.use('/questionType', questionTypeRoute);
 api.use('/question-time', questionTimeRoute);
 api.use('/report', report);
 api.use('/image', image);

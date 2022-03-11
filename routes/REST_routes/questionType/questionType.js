@@ -1,20 +1,27 @@
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
 const express = require('express');
 const init = express.Router();
-const mongoose = require('mongoose');
-
-require('../../../database/model/questionTypes');
-const QuestionType = mongoose.model('QuestionTypes');
 
 init.get('/', async function (req, res) {
-  const questionType = await QuestionType.find().sort('-_id');
+  const questionTypes = await prisma.questionType.findMany();
+
   res.json({
-    data: questionType,
+    data: questionTypes,
   });
 });
 
 init.get('/:id', async function (req, res) {
   try {
-    let questionType = await QuestionType.findOne({ _id: req.params.id });
+    const questionType = await prisma.questionType.findUnique({
+      where: { id: req.params.id },
+    });
+    if (!questionType) {
+      res.status(404).json({
+        message: 'Question type not found',
+      });
+      return;
+    }
     res.json({
       data: questionType,
     });
@@ -26,17 +33,29 @@ init.get('/:id', async function (req, res) {
 });
 
 init.put('/:id', async function (req, res) {
-
-  let questionType = await QuestionType.findOne({ _id: req.params.id });
-  questionType.isActive = req.body.isActive;
-  questionType.save((err, data) => {
-    if (err || !questionType) {
-      res.status(400).json({
-        error: 'User not found id',
+  try {
+    const questionType = await prisma.questionType.update({
+      where: { id: Number(req.params.id) },
+      data: {
+        ...req.body,
+      },
+    });
+    console.log(questionType);
+    if (!questionType) {
+      res.status(404).json({
+        message: 'Question type not found',
       });
+      return;
     }
-    res.json(data);
-  });
+    res.json({
+      data: questionType,
+    });
+  } catch (error) {
+    console.log(error);
+    res.json({
+      data: null,
+    });
+  }
 });
 
 module.exports = init;
