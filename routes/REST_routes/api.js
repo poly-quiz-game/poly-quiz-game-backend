@@ -14,7 +14,7 @@ api.use('/auth', authRoute);
 api.use('/quiz', quizRoute);
 api.use('/user', userRoute);
 api.use('/questionType', questionTypeRoute);
-api.use('/question-time', questionTimeRoute);
+// api.use('/question-time', questionTimeRoute);
 api.use('/report', report);
 api.use('/image', image);
 api.use('/dashboard', dashboard);

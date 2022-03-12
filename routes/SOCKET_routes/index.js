@@ -80,44 +80,47 @@ io.on('connection', socket => {
   //When host connects for the first time
   socket.on('host-create-lobby', async data => {
     if (!data.id) return;
-
-    const quiz = await prisma.quiz.findUnique({
-      where: {
-        id: Number(data.id),
-      },
-      include: {
-        questions: {
-          include: {
-            answers: true,
-            type: true,
+    try {
+      const quiz = await prisma.quiz.findUnique({
+        where: {
+          id: Number(data.id),
+        },
+        include: {
+          questions: {
+            include: {
+              answers: true,
+              type: true,
+            },
           },
         },
-      },
-    });
-    //A kahoot was found with the id passed in url
-    if (quiz) {
-      const gamePin = Math.floor(Math.random() * 90000) + 10000; //new pin for game
-      const game = {
-        hostSocketId: socket.id,
-        pin: gamePin,
-        quizId: quiz.id,
-        isLive: false,
-        isQuestionLive: false,
-        questionIndex: 0,
-        questionsLength: quiz.questions.length,
-        quizData: quiz,
-      };
-
-      games.addGame(game); //Creates a game with pin and host id
-
-      socket.join(game.pin); //  Create socket room for host
-
-      //Sending game pin to host so they can display it for players to join
-      socket.emit('lobby-info', {
-        pin: game.pin,
-        hostSocketId: socket.id,
       });
-    } else {
+      //A kahoot was found with the id passed in url
+      if (quiz) {
+        const gamePin = Math.floor(Math.random() * 90000) + 10000; //new pin for game
+        const game = {
+          hostSocketId: socket.id,
+          pin: gamePin,
+          quizId: quiz.id,
+          isLive: false,
+          isQuestionLive: false,
+          questionIndex: 0,
+          questionsLength: quiz.questions.length,
+          quizData: quiz,
+        };
+
+        games.addGame(game); //Creates a game with pin and host id
+
+        socket.join(game.pin); //  Create socket room for host
+
+        //Sending game pin to host so they can display it for players to join
+        socket.emit('lobby-info', {
+          pin: game.pin,
+          hostSocketId: socket.id,
+        });
+      } else {
+        socket.emit('no-quiz-found');
+      }
+    } catch (error) {
       socket.emit('no-quiz-found');
     }
   });
@@ -542,8 +545,11 @@ io.on('connection', socket => {
         },
       })
     );
-
-    await Promise.all(playerData);
+    try {
+      await Promise.all(playerData);
+    } catch (error) {
+      console.log(error);
+    }
 
     for (let i = 0; i < playersInGame.length; i++) {
       io.to(playersInGame[i].playerSocketId).emit('game-over', {

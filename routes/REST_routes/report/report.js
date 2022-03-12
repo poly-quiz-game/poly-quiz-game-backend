@@ -13,47 +13,53 @@ init.get(
   '/',
   passport.authenticate('jwt', { session: false }),
   async function (req, res) {
-    const {
-      offset = 0,
-      limit = 10,
-      searchField = 'name',
-      search: searchValue,
-      sortField = 'createdAt',
-      sortDirection = 'desc',
-    } = req.query;
+    try {
+      const {
+        offset = 0,
+        limit = 10,
+        searchField = 'name',
+        search: searchValue,
+        sortField = 'createdAt',
+        sortDirection = 'desc',
+      } = req.query;
 
-    const query = {
-      orderBy: {
-        [sortField]: sortDirection,
-      },
-      where: {},
-    };
-
-    if (searchField && searchValue) {
-      query.where[searchField] = {
-        contains: searchValue,
+      const query = {
+        orderBy: {
+          [sortField]: sortDirection,
+        },
+        where: {},
       };
+
+      if (searchField && searchValue) {
+        query.where[searchField] = {
+          contains: searchValue,
+        };
+      }
+
+      query.where.userId = { equals: Number(req.user.id) };
+
+      const reports = await prisma.report.findMany({
+        ...query,
+        skip: Number(offset),
+        take: Number(limit),
+        include: {
+          reportQuestions: true,
+          players: true,
+        },
+      });
+      const total = await prisma.report.count(query);
+      res.json({
+        data: reports,
+        total,
+      });
+    } catch (error) {
+      console.log(error);
+      res.status(400).json({
+        error: 'error',
+      });
     }
-
-    query.where.userId = { equals: Number(req.user.id) };
-
-    const reports = await prisma.report.findMany({
-      ...query,
-      skip: Number(offset),
-      take: Number(limit),
-      include: {
-        reportQuestions: true,
-        players: true,
-      },
-    });
-    const total = await prisma.report.count(query);
-    res.json({
-      data: reports,
-      total,
-    });
   }
 );
-
 
 init.get(
   '/:id',

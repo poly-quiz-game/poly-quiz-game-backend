@@ -6,44 +6,51 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
 init.get('/', async function (req, res) {
-  const {
-    offset = 0,
-    limit = 10,
-    searchField = 'email',
-    search: searchValue,
-    sortField = 'createdAt',
-    sortDirection = 'desc',
-  } = req.query;
+  try {
+    const {
+      offset = 0,
+      limit = 10,
+      searchField = 'email',
+      search: searchValue,
+      sortField = 'createdAt',
+      sortDirection = 'desc',
+    } = req.query;
 
-  const query = {
-    orderBy: {
-      [sortField || 'createdAt']: sortDirection,
-    },
-    where: {},
-  };
-
-  if (searchField && searchValue) {
-    query.where[searchField] = {
-      contains: searchValue,
+    const query = {
+      orderBy: {
+        [sortField || 'createdAt']: sortDirection,
+      },
+      where: {},
     };
-  }
-  const users = await prisma.user.findMany({
-    skip: Number(offset),
-    take: Number(limit),
-    include: {
-      quizzes: true,
-      reports: true,
-    },
-    orderBy: {
-      [sortField || 'createdAt']: sortDirection,
-    },
-  });
 
-  const total = await prisma.user.count(query);
-  res.json({
-    data: users,
-    total,
-  });
+    if (searchField && searchValue) {
+      query.where[searchField] = {
+        contains: searchValue,
+      };
+    }
+    const users = await prisma.user.findMany({
+      skip: Number(offset),
+      take: Number(limit),
+      include: {
+        quizzes: true,
+        reports: true,
+      },
+      orderBy: {
+        [sortField || 'createdAt']: sortDirection,
+      },
+    });
+
+    const total = await prisma.user.count(query);
+    res.json({
+      data: users,
+      total,
+    });
+  } catch (error) {
+    console.log(error);
+    res.status(400).json({
+      error: 'error',
+    });
+  }
 });
 
 init.get('/:id', async function (req, res) {
@@ -76,7 +83,6 @@ init.get('/:id', async function (req, res) {
     });
   }
 });
-
 
 init.post('/', body('email').isEmail(), async function (req, res) {
   try {

@@ -4,11 +4,18 @@ const express = require('express');
 const init = express.Router();
 
 init.get('/', async function (req, res) {
-  const questionTypes = await prisma.questionType.findMany();
+  try {
+    const questionTypes = await prisma.questionType.findMany();
 
-  res.json({
-    data: questionTypes,
-  });
+    res.json({
+      data: questionTypes,
+    });
+  } catch (error) {
+    console.log(error);
+    res.status(400).json({
+      error: 'error',
+    });
+  }
 });
 
 init.get('/:id', async function (req, res) {

@@ -53,14 +53,19 @@ opts.secretOrKey = secret_key;
 
 passport.use(
   new JwtStrategy(opts, async (jwt_payload, done) => {
-    const user = await prisma.user.findUnique({
-      where: { id: jwt_payload.id },
-    });
-    if (user) {
-      return done(null, user);
-    } else {
-      return done(null, false);
-      // or you could create a new account
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: jwt_payload.id },
+      });
+      if (user) {
+        return done(null, user);
+      } else {
+        return done(null, false);
+        // or you could create a new account
+      }
+    } catch (error) {
+      console.log(error);
+      return done(error, false);
     }
   })
 );
