@@ -6,7 +6,28 @@ const prisma = new PrismaClient();
 init.get('/', async function (req, res) {
   try {
     const { start, end } = req.query;
-    console.log(start);
+    const countNewQuiz = await prisma.quiz.count({
+      where: {
+        createdAt: {
+          gte: new Date(start),
+          lt:  new Date(end)
+        }
+
+      }
+    })
+
+    const countPlayers = await prisma.report.findMany({
+      where: {
+        createdAt: {
+          gte: new Date(start),
+          lt:  new Date(end)
+        }
+
+      },
+      include: {
+        players: true,
+      }
+    })
 
     const arrayCount =
       await prisma.$queryRaw`SELECT Date("createdAt"), count("createdAt") FROM "Report" WHERE "createdAt" > ${new Date(
@@ -46,6 +67,8 @@ init.get('/', async function (req, res) {
           TRUE_FALSE_ANSWER: TRUE_FALSE_ANSWER_COUNT,
         },
         arrayCount,
+        countNewQuiz,
+        countPlayers
       },
     });
   } catch (error) {
