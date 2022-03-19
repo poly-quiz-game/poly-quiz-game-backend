@@ -7,6 +7,8 @@
 var app = require('../server');
 var debug = require('debug')('myexpressapp:server');
 var http = require('http');
+// const { createClient } = require('redis');
+// const { createAdapter } = require('@socket.io/redis-adapter');
 
 /**
  * Get port from environment and store in Express.

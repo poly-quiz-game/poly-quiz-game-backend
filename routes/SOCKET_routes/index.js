@@ -1,5 +1,4 @@
 let io = require('socket.io')();
-// const mongoose = require('mongoose');
 const _ = require('lodash');
 const { PrismaClient } = require('@prisma/client');
 
@@ -21,11 +20,6 @@ const questionTypes = {
 };
 
 const prisma = new PrismaClient();
-// require('../../database/model/quizzes');
-// const Quizzes = mongoose.model('Quizzes');
-
-// require('../../database/model/reports');
-// const Reports = mongoose.model('Reports');
 
 const { Games } = require('../../utils/games');
 const games = new Games();
@@ -50,7 +44,7 @@ const checkIsCorrectAnswer = (answer, { type, correctAnswer, answers }) => {
 };
 
 const calculateScore = ({ answerString, question }) => {
-  if (question.type === questionTypes.MULTIPLE_CORRECT_ANSWER) {
+  if (question.type.name === questionTypes.MULTIPLE_CORRECT_ANSWER) {
     return (
       question.correctAnswer.split('|').filter(function (x) {
         return answerString.split('|').indexOf(x) !== -1;
@@ -102,6 +96,7 @@ io.on('connection', socket => {
           pin: gamePin,
           quizId: quiz.id,
           isLive: false,
+          isLocked: false,
           isQuestionLive: false,
           questionIndex: 0,
           questionsLength: quiz.questions.length,
@@ -117,11 +112,27 @@ io.on('connection', socket => {
           pin: game.pin,
           hostSocketId: socket.id,
         });
+        const allGames = games.getAllGames();
+        io.emit('game-playing', allGames.length);
       } else {
         socket.emit('no-quiz-found');
       }
     } catch (error) {
       socket.emit('no-quiz-found');
+    }
+  });
+
+  socket.on('host-lock-lobby', async value => {
+    try {
+      console.log('host-lock-lobby: ', value);
+      const game = games.getGame(socket.id); //Get the game based on socket.id
+      console.log('game: ', game);
+      if (game) {
+        game.isLocked = value;
+        io.to(game.pin).emit('lobby-locked', value);
+      }
+    } catch (error) {
+      console.log(error);
     }
   });
 
@@ -221,12 +232,20 @@ io.on('connection', socket => {
         console.log('Player connected to game', player);
 
         const { hostSocketId, quizData } = game; //Get the id of host of game
-        if (
-          players.getPlayers(hostSocketId).length >= quizData.numberOfPlayer ||
-          game.isLive ||
-          game.isLocked
-        ) {
-          socket.emit('no-game-found'); //Player is sent back to 'join' page because game was not found with pin
+
+        let error = '';
+        const isFull =
+          players.getPlayers(hostSocketId).length >= quizData.numberOfPlayer;
+        const hasEmail = players
+          .getPlayers(hostSocketId)
+          .find(({ email }) => email && email == player.email);
+        if (isFull) error = 'Phòng đã đầy';
+        else if (game.isLive) error = 'Phòng đang chơi';
+        else if (game.isLocked) error = 'Phòng đang bị khóa';
+        else if (hasEmail)
+          error = `Người chơi với email ${player.email} đã vào phòng`;
+        if (error) {
+          socket.emit('no-game-found', error); //Player is sent back to 'join' page because game was not found with pin
           return;
         }
         players.addPlayer({
@@ -310,6 +329,9 @@ io.on('connection', socket => {
         }
 
         io.to(game.pin).emit('host-disconnrected'); //Send player back to 'join' screen
+
+        const allGames = games.getAllGames();
+        io.emit('game-playing', allGames.length);
         socket.leave(game.pin); //Socket is leaving room
       }
     } else {
@@ -629,6 +651,11 @@ io.on('connection', socket => {
       playersInGame,
       { ...quizData, players: reportPlayers.sort((a, b) => b.score - a.score) }
     );
+  });
+
+  socket.on('get-game-playing', () => {
+    const allGames = games.getAllGames();
+    socket.emit('game-playing', allGames.length);
   });
 });
 

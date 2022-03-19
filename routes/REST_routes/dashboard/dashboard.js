@@ -3,6 +3,7 @@ const init = express.Router();
 const passport = require('passport');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
+
 init.get('/', async function (req, res) {
   try {
     const { start, end } = req.query;
@@ -10,24 +11,22 @@ init.get('/', async function (req, res) {
       where: {
         createdAt: {
           gte: new Date(start),
-          lt:  new Date(end)
-        }
-
-      }
-    })
+          lt: new Date(end),
+        },
+      },
+    });
 
     const countPlayers = await prisma.report.findMany({
       where: {
         createdAt: {
           gte: new Date(start),
-          lt:  new Date(end)
-        }
-
+          lt: new Date(end),
+        },
       },
       include: {
         players: true,
-      }
-    })
+      },
+    });
 
     const arrayCount =
       await prisma.$queryRaw`SELECT Date("createdAt"), count("createdAt") FROM "Report" WHERE "createdAt" > ${new Date(
@@ -68,8 +67,26 @@ init.get('/', async function (req, res) {
         },
         arrayCount,
         countNewQuiz,
-        countPlayers
+        countPlayers,
       },
+    });
+  } catch (error) {
+    console.log(error);
+    res.status(400).json({
+      error: 'error',
+    });
+  }
+});
+
+init.get('/question-count-by-type/:id', async function (req, res) {
+  try {
+    const { id } = req.params;
+    const query = {
+      where: { questionTypeId: Number(id) },
+    };
+    const questionCount = await prisma.question.count(query);
+    res.json({
+      data: questionCount,
     });
   } catch (error) {
     console.log(error);

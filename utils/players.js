@@ -29,6 +29,9 @@ class Players {
       player => player.playerSocketId == playerSocketId
     )[0];
   }
+  getPlayerByEmail(email) {
+    return this.players.filter(player => player.email == email)[0];
+  }
   getPlayers(hostSocketId) {
     return this.players.filter(player => player.hostSocketId == hostSocketId);
   }

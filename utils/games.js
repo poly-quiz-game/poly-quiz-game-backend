@@ -7,9 +7,10 @@ class Games {
     hostSocketId,
     pin,
     quizId,
-    isLive,
-    isQuestionLive,
-    questionIndex,
+    isLive = false,
+    isLocked = false,
+    isQuestionLive = false,
+    questionIndex = 0,
     questionsLength,
     quizData,
   }) => {
@@ -18,6 +19,7 @@ class Games {
       pin,
       quizId,
       isLive,
+      isLocked,
       isQuestionLive,
       questionIndex,
       questionsLength,
@@ -39,6 +41,9 @@ class Games {
     if (socketId) {
       return this.games.filter(game => game.hostSocketId === socketId)[0];
     }
+    return this.games;
+  }
+  getAllGames() {
     return this.games;
   }
   getGameByPin(pin) {

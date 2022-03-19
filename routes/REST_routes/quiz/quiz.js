@@ -15,7 +15,7 @@ init.get(
         limit = 10,
         searchField = 'name',
         search: searchValue,
-        sortField = 'createdAt',
+        sortField = 'updatedAt',
         sortDirection = 'desc',
       } = req.query;
 
@@ -210,6 +210,7 @@ init.put(
         },
         data: {
           ...quizData,
+          updatedAt: new Date(),
           questions: {
             update: questions.map(({ type, ...q }) => ({
               where: {
