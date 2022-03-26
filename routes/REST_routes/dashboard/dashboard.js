@@ -135,4 +135,29 @@ init.get(
   }
 );
 
+init.get(
+  '/user/top/5',
+  passport.authenticate('jwt', { session: false }),
+  async function (req, res) {
+    try {
+      if (req.user.role !== 'admin') {
+        res.status(403).json({ error: 'fobiddem' });
+        return;
+      }
+      const topUser = await prisma.$queryRaw`
+        SELECT ROW_NUMBER() OVER (order by count(distinct "Report".id) DESC) AS key, "User".id, "User".name, count(distinct "Report".id) as countReport, count(distinct "Player".id) as countPlayer from "Report"
+        left join "User" on "User".id = "Report"."userId"
+        left join "Player"  on "Report".id = "Player"."reportId"
+        group by "User".id        
+        limit 5`;
+      res.json({
+        topUser,
+      });
+    } catch (error) {
+      console.log(error);
+      res.status(400).json(error);
+    }
+  }
+);
+
 module.exports = init;

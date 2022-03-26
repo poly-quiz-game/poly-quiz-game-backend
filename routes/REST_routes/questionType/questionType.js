@@ -41,10 +41,18 @@ init.get('/:id', async function (req, res) {
 
 init.put('/:id', async function (req, res) {
   try {
+    const { isActive } = req.body;
+    // if (!isActive) {
+    //   await prisma.question.deleteMany({
+    //     where: {
+    //       questionTypeId: req.params.id,
+    //     },
+    //   });
+    // }
     const questionType = await prisma.questionType.update({
       where: { id: Number(req.params.id) },
       data: {
-        ...req.body,
+        isActive,
       },
     });
     console.log(questionType);

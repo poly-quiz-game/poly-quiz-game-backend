@@ -211,19 +211,25 @@ init.put(
         data: {
           ...quizData,
           updatedAt: new Date(),
-          questions: {
-            update: questions.map(({ type, ...q }) => ({
+        },
+      });
+
+      await Promise.all(
+        questions.map(async question => {
+          const { type, ...questionData } = question;
+          if (question.id) {
+            await prisma.question.update({
               where: {
-                id: Number(q.id),
+                id: Number(question.id),
               },
               data: {
-                ...q,
+                ...questionData,
                 questionTypeId: type.id,
                 answers: {
-                  update: q.answers.map((answer, i) => ({
+                  update: question.answers.map((answer, i) => ({
                     where: {
                       index_questionId: {
-                        questionId: Number(q.id),
+                        questionId: Number(question.id),
                         index: i,
                       },
                     },
@@ -234,10 +240,21 @@ init.put(
                   })),
                 },
               },
-            })),
-          },
-        },
-      });
+            });
+          } else {
+            await prisma.question.create({
+              data: {
+                ...questionData,
+                quizId: Number(quiz.id),
+                questionTypeId: type.id,
+                answers: {
+                  create: question.answers.map((a, i) => ({ answer: a, index: i })),
+                },
+              },
+            });
+          }
+        })
+      );
 
       res.json(updateQuiz);
     } catch (error) {

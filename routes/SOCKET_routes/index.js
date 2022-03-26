@@ -7,17 +7,17 @@ const client = new OAuth2Client(
   '767848981447-tebf1tn4llljl98lddf4u4fp7666nqtg.apps.googleusercontent.com'
 );
 
-const SINGLE_CORRECT_ANSWER = 'SINGLE_CORRECT_ANSWER';
-const MULTIPLE_CORRECT_ANSWER = 'MULTIPLE_CORRECT_ANSWER';
-const TRUE_FALSE_ANSWER = 'TRUE_FALSE_ANSWER';
-const TYPE_ANSWER = 'TYPE_ANSWER';
+// const SINGLE_CORRECT_ANSWER = 'SINGLE_CORRECT_ANSWER';
+// const MULTIPLE_CORRECT_ANSWER = 'MULTIPLE_CORRECT_ANSWER';
+// const TRUE_FALSE_ANSWER = 'TRUE_FALSE_ANSWER';
+// const TYPE_ANSWER = 'TYPE_ANSWER';
 
-const questionTypes = {
-  [SINGLE_CORRECT_ANSWER]: SINGLE_CORRECT_ANSWER,
-  [MULTIPLE_CORRECT_ANSWER]: MULTIPLE_CORRECT_ANSWER,
-  [TRUE_FALSE_ANSWER]: TRUE_FALSE_ANSWER,
-  [TYPE_ANSWER]: TYPE_ANSWER,
-};
+// const questionTypes = {
+//   [SINGLE_CORRECT_ANSWER]: SINGLE_CORRECT_ANSWER,
+//   [MULTIPLE_CORRECT_ANSWER]: MULTIPLE_CORRECT_ANSWER,
+//   [TRUE_FALSE_ANSWER]: TRUE_FALSE_ANSWER,
+//   [TYPE_ANSWER]: TYPE_ANSWER,
+// };
 
 const prisma = new PrismaClient();
 
@@ -44,13 +44,13 @@ const checkIsCorrectAnswer = (answer, { type, correctAnswer, answers }) => {
 };
 
 const calculateScore = ({ answerString, question }) => {
-  if (question.type.name === questionTypes.MULTIPLE_CORRECT_ANSWER) {
-    return (
-      question.correctAnswer.split('|').filter(function (x) {
-        return answerString.split('|').indexOf(x) !== -1;
-      }).length / question.correctAnswer.split('|').length
-    );
-  }
+  // if (question.type.name === questionTypes.MULTIPLE_CORRECT_ANSWER) {
+  //   return (
+  //     question.correctAnswer.split('|').filter(function (x) {
+  //       return answerString.split('|').indexOf(x) !== -1;
+  //     }).length / question.correctAnswer.split('|').length
+  //   );
+  // }
   const isCorrect = checkIsCorrectAnswer(answerString, question);
   if (isCorrect) {
     return 1;
@@ -58,21 +58,23 @@ const calculateScore = ({ answerString, question }) => {
   return 0;
 };
 
-const getPlayerCorrectAnswers = (answers, questions) => {
-  return answers.reduce((acc, answer, index) => {
-    const question = questions[index];
-    if (checkIsCorrectAnswer(answer, question)) {
-      return [...acc, index];
-    }
-    return acc;
-  }, []);
-};
+// const getPlayerCorrectAnswers = (answers, questions) => {
+//   return answers.reduce((acc, answer, index) => {
+//     const question = questions[index];
+//     if (checkIsCorrectAnswer(answer, question)) {
+//       return [...acc, index];
+//     }
+//     return acc;
+//   }, []);
+// };
 
 //When a connection to server is made from client
+
 io.on('connection', socket => {
   console.log('ON');
   //When host connects for the first time
   socket.on('host-create-lobby', async data => {
+    console.log('HOST CREATE LOBBY');
     if (!data.id) return;
     try {
       const quiz = await prisma.quiz.findUnique({
@@ -123,6 +125,7 @@ io.on('connection', socket => {
   });
 
   socket.on('host-lock-lobby', async value => {
+    console.log('HOST LOCK LOBBY');
     try {
       console.log('host-lock-lobby: ', value);
       const game = games.getGame(socket.id); //Get the game based on socket.id
@@ -138,6 +141,7 @@ io.on('connection', socket => {
 
   //Give game
   socket.on('get-game-info', () => {
+    console.log('GET GAME INFO');
     const game = games.getGame(socket.id); //Get the game based on socket.id
     if (!game) {
       socket.emit('no-game-found');
@@ -150,6 +154,7 @@ io.on('connection', socket => {
   });
 
   socket.on('host-kick-player-on-lobby', ({ hostSocketId, playerSocketId }) => {
+    console.log('HOST KICK PLAYER ON LOBBY');
     players.removePlayer(playerSocketId);
     const playersInGame = players.getPlayers(hostSocketId); //Gets remaining players in game
 
@@ -159,6 +164,7 @@ io.on('connection', socket => {
 
   //When the host connects from the game view
   socket.on('host-start-game', async data => {
+    console.log('HOST START GAME');
     const oldHostSocketId = data.id;
 
     const game = games.getGame(oldHostSocketId); //Gets game with old host id
@@ -204,6 +210,7 @@ io.on('connection', socket => {
 
   //When player connects for the first time
   socket.on('player-join-lobby', async ({ pin, name, tokenId }) => {
+    console.log('PLAYER JOIN LOBBY');
     let gameFound = false; //If a game is found with pin provided by player
 
     for (let i = 0; i < games.games.length; i++) {
@@ -273,6 +280,8 @@ io.on('connection', socket => {
 
   // check game
   socket.on('player-check-game', pin => {
+    console.log('PLAYER CHECK GAME');
+    console.log('player-check-game: ', pin);
     const game = games.getGameByPin(Number(pin)); //Get the game based on socket.id
     if (!game) {
       return socket.emit('no-game-found');
@@ -282,6 +291,7 @@ io.on('connection', socket => {
 
   //When the player connects from game view
   socket.on('player-join-game', ({ socketId: playerSocketId }) => {
+    console.log('PLAYER JOIN GAME');
     const player = players.getPlayer(playerSocketId);
     if (player) {
       const game = games.getGame(player.hostSocketId);
@@ -312,6 +322,7 @@ io.on('connection', socket => {
 
   //When a host or player leaves the site
   socket.on('disconnect', () => {
+    console.log('DISCONNECT', socket.id);
     const game = games.getGame(socket.id); //Finding game with socket.id
     //If a game hosted by that id is found, the socket disconnected is a host
     if (game) {
@@ -357,6 +368,7 @@ io.on('connection', socket => {
 
   //Sets data in player class to answer from player
   socket.on('player-answer', async function (answerString) {
+    console.log('PLAYER ANSWER');
     const player = players.getPlayer(socket.id);
     if (!player) {
       socket.emit('no-game-found'); //No game found
@@ -401,6 +413,7 @@ io.on('connection', socket => {
             player.answers[questionIndex].answer,
             question
           );
+          player.answers[questionIndex].isCorrect = isCorrect;
           io.to(player.playerSocketId).emit('question-over', isCorrect); //Tell everyone that question is over
         });
         return;
@@ -414,6 +427,7 @@ io.on('connection', socket => {
   });
 
   socket.on('get-player-score', () => {
+    console.log('GET PLAYER SCORE');
     const player = players.getPlayer(socket.id);
     const playersInGame = players.getPlayers(player.hostSocketId); //Getting all players in the game
     let rank = 1;
@@ -430,6 +444,7 @@ io.on('connection', socket => {
   });
 
   socket.on('get-score-board', () => {
+    console.log('GET SCORE BOARD');
     const playersInGame = players.getPlayers(socket.id); //Getting all players in the game
     socket.emit('score-board', playersInGame);
   });
@@ -437,6 +452,7 @@ io.on('connection', socket => {
   socket.on(
     'player-answered-time',
     ({ time, playerId, question, answerString }) => {
+      console.log('PLAYER ANSWERED TIME');
       const player = players.getPlayer(playerId);
       const game = games.getGame(player.hostSocketId);
       const { timeLimit } = question;
@@ -451,6 +467,7 @@ io.on('connection', socket => {
   );
 
   socket.on('time-up', async function () {
+    console.log('TIME UP');
     const game = games.getGame(socket.id);
     game.isQuestionLive = false;
     const playersInGame = players.getPlayers(game.hostSocketId);
@@ -465,12 +482,14 @@ io.on('connection', socket => {
       const isCorrect = player.answers[questionIndex].answer
         ? checkIsCorrectAnswer(player.answers[questionIndex].answer, question)
         : false;
+      player.answers[questionIndex].isCorrect = isCorrect;
       io.to(player.playerSocketId).emit('question-over', isCorrect); //Tell everyone that question is over
     });
     io.to(game.hostSocketId).emit('question-over', playersInGame); //Tell everyone that question is over
   });
 
   socket.on('next-question', async () => {
+    console.log('NEXT QUESTION');
     const game = games.getGame(socket.id);
     if (!game) {
       socket.emit('no-game-found'); //No game found
@@ -654,6 +673,7 @@ io.on('connection', socket => {
   });
 
   socket.on('get-game-playing', () => {
+    console.log('GET GAME PLAYING');
     const allGames = games.getAllGames();
     socket.emit('game-playing', allGames.length);
   });
