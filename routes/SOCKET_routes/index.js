@@ -7,17 +7,17 @@ const client = new OAuth2Client(
   '767848981447-tebf1tn4llljl98lddf4u4fp7666nqtg.apps.googleusercontent.com'
 );
 
-const SINGLE_CORRECT_ANSWER = 'SINGLE_CORRECT_ANSWER';
-const MULTIPLE_CORRECT_ANSWER = 'MULTIPLE_CORRECT_ANSWER';
-const TRUE_FALSE_ANSWER = 'TRUE_FALSE_ANSWER';
-const TYPE_ANSWER = 'TYPE_ANSWER';
+// const SINGLE_CORRECT_ANSWER = 'SINGLE_CORRECT_ANSWER';
+// const MULTIPLE_CORRECT_ANSWER = 'MULTIPLE_CORRECT_ANSWER';
+// const TRUE_FALSE_ANSWER = 'TRUE_FALSE_ANSWER';
+// const TYPE_ANSWER = 'TYPE_ANSWER';
 
-const questionTypes = {
-  [SINGLE_CORRECT_ANSWER]: SINGLE_CORRECT_ANSWER,
-  [MULTIPLE_CORRECT_ANSWER]: MULTIPLE_CORRECT_ANSWER,
-  [TRUE_FALSE_ANSWER]: TRUE_FALSE_ANSWER,
-  [TYPE_ANSWER]: TYPE_ANSWER,
-};
+// const questionTypes = {
+//   [SINGLE_CORRECT_ANSWER]: SINGLE_CORRECT_ANSWER,
+//   [MULTIPLE_CORRECT_ANSWER]: MULTIPLE_CORRECT_ANSWER,
+//   [TRUE_FALSE_ANSWER]: TRUE_FALSE_ANSWER,
+//   [TYPE_ANSWER]: TYPE_ANSWER,
+// };
 
 const prisma = new PrismaClient();
 
@@ -44,13 +44,13 @@ const checkIsCorrectAnswer = (answer, { type, correctAnswer, answers }) => {
 };
 
 const calculateScore = ({ answerString, question }) => {
-  if (question.type.name === questionTypes.MULTIPLE_CORRECT_ANSWER) {
-    return (
-      question.correctAnswer.split('|').filter(function (x) {
-        return answerString.split('|').indexOf(x) !== -1;
-      }).length / question.correctAnswer.split('|').length
-    );
-  }
+  // if (question.type.name === questionTypes.MULTIPLE_CORRECT_ANSWER) {
+  //   return (
+  //     question.correctAnswer.split('|').filter(function (x) {
+  //       return answerString.split('|').indexOf(x) !== -1;
+  //     }).length / question.correctAnswer.split('|').length
+  //   );
+  // }
   const isCorrect = checkIsCorrectAnswer(answerString, question);
   if (isCorrect) {
     return 1;
@@ -58,17 +58,18 @@ const calculateScore = ({ answerString, question }) => {
   return 0;
 };
 
-const getPlayerCorrectAnswers = (answers, questions) => {
-  return answers.reduce((acc, answer, index) => {
-    const question = questions[index];
-    if (checkIsCorrectAnswer(answer, question)) {
-      return [...acc, index];
-    }
-    return acc;
-  }, []);
-};
+// const getPlayerCorrectAnswers = (answers, questions) => {
+//   return answers.reduce((acc, answer, index) => {
+//     const question = questions[index];
+//     if (checkIsCorrectAnswer(answer, question)) {
+//       return [...acc, index];
+//     }
+//     return acc;
+//   }, []);
+// };
 
 //When a connection to server is made from client
+
 io.on('connection', socket => {
   console.log('ON');
   //When host connects for the first time
@@ -273,6 +274,7 @@ io.on('connection', socket => {
 
   // check game
   socket.on('player-check-game', pin => {
+    console.log('player-check-game: ', pin);
     const game = games.getGameByPin(Number(pin)); //Get the game based on socket.id
     if (!game) {
       return socket.emit('no-game-found');
@@ -401,6 +403,7 @@ io.on('connection', socket => {
             player.answers[questionIndex].answer,
             question
           );
+          player.answers[questionIndex].isCorrect = isCorrect;
           io.to(player.playerSocketId).emit('question-over', isCorrect); //Tell everyone that question is over
         });
         return;
@@ -465,6 +468,7 @@ io.on('connection', socket => {
       const isCorrect = player.answers[questionIndex].answer
         ? checkIsCorrectAnswer(player.answers[questionIndex].answer, question)
         : false;
+      player.answers[questionIndex].isCorrect = isCorrect;
       io.to(player.playerSocketId).emit('question-over', isCorrect); //Tell everyone that question is over
     });
     io.to(game.hostSocketId).emit('question-over', playersInGame); //Tell everyone that question is over

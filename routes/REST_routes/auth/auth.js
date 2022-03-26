@@ -20,7 +20,6 @@ const client = new OAuth2Client(
 
 const { SESSION_SECRET } = require('../../../config');
 // const authenticationMiddleware = require('../../middleware/authenticationMiddleware');
-require('../../../database/model/users');
 
 const secret_key = SESSION_SECRET;
 
@@ -54,11 +53,13 @@ opts.secretOrKey = secret_key;
 passport.use(
   new JwtStrategy(opts, async (jwt_payload, done) => {
     try {
-      const user = await prisma.user.findUnique({
-        where: { id: jwt_payload.id },
+      console.log('jwt_payload', jwt_payload);
+      const users = await prisma.user.findMany({
+        where: { email: jwt_payload.email },
       });
-      if (user) {
-        return done(null, user);
+      console.log('users', users);
+      if (users[0]) {
+        return done(null, users[0]);
       } else {
         return done(null, false);
         // or you could create a new account
@@ -105,6 +106,7 @@ authRouter.post('/google-login', async function (req, res) {
       audience: process.env.O2AUTH_GOOGLE_CLIENT_ID,
       scopes: ['https://www.googleapis.com/auth/cloud-platform'],
     });
+    console.log(response)
     const { email_verified, email } = response.payload;
     if (email_verified) {
       const user = await prisma.user.findUnique({ where: { email } });
@@ -116,9 +118,13 @@ authRouter.post('/google-login', async function (req, res) {
         user.name = response.payload.name;
         // user.save();
       }
-      const token = jwt.sign({ id: user.id }, process.env.JWT_SIGNIN_KEY, {
-        expiresIn: '7d',
-      });
+      const token = jwt.sign(
+        { id: user.id, email: user.email },
+        process.env.JWT_SIGNIN_KEY,
+        {
+          expiresIn: '7d',
+        }
+      );
       return res.status(200).json({ token, user });
     }
   } catch (error) {

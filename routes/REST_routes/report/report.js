@@ -1,13 +1,9 @@
 const express = require('express');
 const init = express.Router();
-const mongoose = require('mongoose');
 const passport = require('passport');
 const { PrismaClient } = require('@prisma/client');
 
 const prisma = new PrismaClient();
-
-require('../../../database/model/reports');
-const Reports = mongoose.model('Reports');
 
 init.get(
   '/',

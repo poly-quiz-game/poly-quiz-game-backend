@@ -6,7 +6,6 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
 init.get('/', async function (req, res) {
-  console.log(123123);
   try {
     const countQuiz = await prisma.quiz.count();
     const countReport = await prisma.report.count();
