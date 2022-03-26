@@ -111,10 +111,13 @@ authRouter.post('/google-login', async function (req, res) {
       if (!user) {
         return res.status(400).json({ error: "This user doesn't exist" });
       }
+      if (user.isActive === false) {
+        return res.status(400).json({ error: "Your account is locked" });
+      }
       user.picture = response.payload.picture;
+      console.log(user)
       if (!user.name) {
-        user.name = response.payload.name;
-        // user.save();
+        await prisma.user.update({where: {id: user.id}, data: {name: response.payload.name}})
       }
       const token = jwt.sign({ id: user.id }, process.env.JWT_SIGNIN_KEY, {
         expiresIn: '7d',
