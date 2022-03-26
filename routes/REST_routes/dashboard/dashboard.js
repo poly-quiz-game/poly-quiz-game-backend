@@ -145,11 +145,10 @@ init.get(
         return;
       }
       const topUser = await prisma.$queryRaw`
-        SELECT "User".id, "User".name, count(distinct "Report".id) as countReport, count(distinct "Player".id) as countPlayer from "Report"
+        SELECT ROW_NUMBER() OVER (order by count(distinct "Report".id) DESC) AS key, "User".id, "User".name, count(distinct "Report".id) as countReport, count(distinct "Player".id) as countPlayer from "Report"
         left join "User" on "User".id = "Report"."userId"
         left join "Player"  on "Report".id = "Player"."reportId"
-        group by "User".id
-        order by count(distinct "Report".id) DESC
+        group by "User".id        
         limit 5`;
       res.json({
         topUser,

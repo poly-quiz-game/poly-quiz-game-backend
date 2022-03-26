@@ -65,5 +65,21 @@ init.get(
     }
   }
 );
+init.get('/top-master', async function (req, res) {
+  try {
+    const topMaster = await prisma.$queryRaw`
+        select ROW_NUMBER() OVER (ORDER BY sum(score)) AS key, count(id) as total, sum(score) as score, email, name from "Player"
+        where email notnull
+        group by email, name
+        limit 5`;
+      res.json({
+        topMaster,
+      });
+  } catch (error) {
+    res.status(400).json({
+      error: 'error',
+    });
+  }
+});
 
 module.exports = init;
