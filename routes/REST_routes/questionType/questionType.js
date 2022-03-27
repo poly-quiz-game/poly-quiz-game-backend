@@ -4,11 +4,18 @@ const express = require('express');
 const init = express.Router();
 
 init.get('/', async function (req, res) {
-  const questionTypes = await prisma.questionType.findMany();
+  try {
+    const questionTypes = await prisma.questionType.findMany();
 
-  res.json({
-    data: questionTypes,
-  });
+    res.json({
+      data: questionTypes,
+    });
+  } catch (error) {
+    console.log(error);
+    res.status(400).json({
+      error: 'error',
+    });
+  }
 });
 
 init.get('/:id', async function (req, res) {
@@ -34,10 +41,18 @@ init.get('/:id', async function (req, res) {
 
 init.put('/:id', async function (req, res) {
   try {
+    const { isActive } = req.body;
+    // if (!isActive) {
+    //   await prisma.question.deleteMany({
+    //     where: {
+    //       questionTypeId: req.params.id,
+    //     },
+    //   });
+    // }
     const questionType = await prisma.questionType.update({
       where: { id: Number(req.params.id) },
       data: {
-        ...req.body,
+        isActive,
       },
     });
     console.log(questionType);

@@ -3,6 +3,7 @@ const init = express.Router();
 const passport = require('passport');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
+
 init.get('/', async function (req, res) {
   try {
     const { start, end } = req.query;
@@ -10,24 +11,22 @@ init.get('/', async function (req, res) {
       where: {
         createdAt: {
           gte: new Date(start),
-          lt:  new Date(end)
-        }
-
-      }
-    })
+          lt: new Date(end),
+        },
+      },
+    });
 
     const countPlayers = await prisma.report.findMany({
       where: {
         createdAt: {
           gte: new Date(start),
-          lt:  new Date(end)
-        }
-
+          lt: new Date(end),
+        },
       },
       include: {
         players: true,
-      }
-    })
+      },
+    });
 
     const arrayCount =
       await prisma.$queryRaw`SELECT Date("createdAt"), count("createdAt") FROM "Report" WHERE "createdAt" > ${new Date(
@@ -68,8 +67,26 @@ init.get('/', async function (req, res) {
         },
         arrayCount,
         countNewQuiz,
-        countPlayers
+        countPlayers,
       },
+    });
+  } catch (error) {
+    console.log(error);
+    res.status(400).json({
+      error: 'error',
+    });
+  }
+});
+
+init.get('/question-count-by-type/:id', async function (req, res) {
+  try {
+    const { id } = req.params;
+    const query = {
+      where: { questionTypeId: Number(id) },
+    };
+    const questionCount = await prisma.question.count(query);
+    res.json({
+      data: questionCount,
     });
   } catch (error) {
     console.log(error);
@@ -113,6 +130,31 @@ init.get(
       });
       res.json(quiz);
     } catch (error) {
+      res.status(400).json(error);
+    }
+  }
+);
+
+init.get(
+  '/user/top/5',
+  passport.authenticate('jwt', { session: false }),
+  async function (req, res) {
+    try {
+      if (req.user.role !== 'admin') {
+        res.status(403).json({ error: 'fobiddem' });
+        return;
+      }
+      const topUser = await prisma.$queryRaw`
+        SELECT ROW_NUMBER() OVER (order by count(distinct "Report".id) DESC) AS key, "User".id, "User".name, count(distinct "Report".id) as countReport, count(distinct "Player".id) as countPlayer from "Report"
+        left join "User" on "User".id = "Report"."userId"
+        left join "Player"  on "Report".id = "Player"."reportId"
+        group by "User".id        
+        limit 5`;
+      res.json({
+        topUser,
+      });
+    } catch (error) {
+      console.log(error);
       res.status(400).json(error);
     }
   }
