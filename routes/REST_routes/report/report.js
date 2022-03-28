@@ -5,11 +5,8 @@ const { PrismaClient } = require('@prisma/client');
 
 const prisma = new PrismaClient();
 
-<<<<<<< HEAD
-require('../../../database/model/reports');
+// require('../../../database/model/reports');
 
-=======
->>>>>>> 68095cc6eb48423b49f71b74d6474bd06ab93042
 init.get(
   '/',
   passport.authenticate('jwt', { session: false }),
@@ -159,8 +156,9 @@ init.get(
       });
       const getReportQuestion = i =>
         player.report.reportQuestions.filter(q => i.questionId === q.id)[0];
-      const result = player.playerAnswers.map(i => {
+      const result = player.playerAnswers.map((i, index) => {
         return {
+          id: index,
           type: getTypeQuestion(+getReportQuestion(i).questionTypeId),
           time: i.time,
           status:
