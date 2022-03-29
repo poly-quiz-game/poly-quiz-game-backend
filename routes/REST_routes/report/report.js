@@ -6,6 +6,51 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
 init.get(
+  '/:id/players',
+  passport.authenticate('jwt', { session: false }),
+  async function (req, res) {
+    console.log('ok', req.user.id);
+    try {
+      const {
+        offset = 0,
+        limit = 10,
+        sortField = 'score',
+        sortDirection = 'desc',
+      } = req.query;
+      const query = {
+        orderBy: {
+          [sortField]: sortDirection,
+        },
+        where: {},
+      };
+      query.where.reportId = { equals: Number(req.params.id) };
+      console.log('req.params.id', req.params.id);
+
+      const players = await prisma.player.findMany({
+        ...query,
+        skip: Number(offset),
+        take: Number(limit),
+        include: {
+          report: {
+            include: {
+              reportQuestions: {
+                include: {
+                  reportQuestionAnswers: true,
+                },
+              },
+            },
+          },
+          playerAnswers: true,
+        },
+      });
+      return res.json(players);
+    } catch (error) {
+      console.log(error);
+      res.status(400).json(error);
+    }
+  }
+);
+init.get(
   '/',
   passport.authenticate('jwt', { session: false }),
   async function (req, res) {
@@ -56,53 +101,8 @@ init.get(
     }
   }
 );
+
 // lấy tất cả user trả lời trong 1 report
-init.get(
-  '/:id/players',
-  passport.authenticate('jwt', { session: false }),
-  async function (req, res) {
-    console.log('ok', req.user.id);
-    try {
-      const {
-        offset = 0,
-        limit = 10,
-        sortField = 'score',
-        sortDirection = 'desc',
-      } = req.query;
-      const query = {
-        orderBy: {
-          [sortField]: sortDirection,
-        },
-        where: {},
-      };
-      query.where.reportId = { equals: Number(req.params.id) };
-      console.log('req.params.id', req.params.id);
-
-      const players = await prisma.player.findMany({
-        ...query,
-        skip: Number(offset),
-        take: Number(limit),
-        include: {
-          report: {
-            include: {
-              reportQuestions: {
-                include: {
-                  reportQuestionAnswers: true,
-                },
-              },
-            },
-          },
-          playerAnswers: true,
-        },
-      });
-      return res.json(players);
-    } catch (error) {
-      console.log(error);
-      res.status(400).json(error);
-    }
-  }
-);
-
 const SINGLE_CORRECT_ANSWER = 'SINGLE_CORRECT_ANSWER';
 const MULTIPLE_CORRECT_ANSWER = 'MULTIPLE_CORRECT_ANSWER';
 const TRUE_FALSE_ANSWER = 'TRUE_FALSE_ANSWER';
