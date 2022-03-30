@@ -2,12 +2,13 @@ class Players {
   constructor() {
     this.players = [];
   }
-  addPlayer({ hostSocketId, playerSocketId, name, email, score, answers }) {
+  addPlayer({ hostSocketId, playerSocketId, name, email, avatar, score, answers }) {
     var player = {
       hostSocketId,
       playerSocketId,
       name,
       email,
+      avatar,
       score,
       answers,
     };
