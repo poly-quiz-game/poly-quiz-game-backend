@@ -322,13 +322,13 @@ io.on('connection', socket => {
 
   //When a host or player leaves the site
   socket.on('disconnect', () => {
-    console.log('DISCONNECT', socket.id);
     const game = games.getGame(socket.id); //Finding game with socket.id
     //If a game hosted by that id is found, the socket disconnected is a host
     if (game) {
       // HOST
       //Checking to see if host was disconnected or was sent to game view
-      if (game.isLive == false) {
+      console.log('DISCONNECT - HOST', game);
+      if (game) {
         games.removeGame(socket.id); //Remove the game from games class
         console.log('Game ended with pin:', game.pin);
 
@@ -339,7 +339,7 @@ io.on('connection', socket => {
           players.removePlayer(playersInGame[i].playerSocketId); //Removing each player from player class
         }
 
-        io.to(game.pin).emit('host-disconnrected'); //Send player back to 'join' screen
+        io.to(game.pin).emit('host-disconnected'); //Send player back to 'join' screen
 
         const allGames = games.getAllGames();
         io.emit('game-playing', allGames.length);
@@ -351,6 +351,7 @@ io.on('connection', socket => {
       const player = players.getPlayer(socket.id); //Getting player with socket.id
       //If a player has been found with that id
       if (player) {
+        console.log('DISCONNECT - PLAYER', player);
         const { hostSocketId } = player; //Gets id of host of the game
         const game = games.getGame(hostSocketId); //Gets game data with hostId
         const pin = game.pin; //Gets the pin of the game
@@ -459,7 +460,7 @@ io.on('connection', socket => {
 
       // const isCorrect = checkIsCorrectAnswer(answerString, question);
       const ratio = calculateScore({ time, timeLimit, answerString, question });
-      const score = ratio * (time / (timeLimit / 1000)) * 1000;
+      const score = (ratio * (time / (timeLimit / 1000)) * 1000) | 0;
       const { questionIndex } = game;
       player.answers[questionIndex].time = time;
       player.score += score;
