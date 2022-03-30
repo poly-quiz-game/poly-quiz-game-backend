@@ -31,7 +31,7 @@ model Quiz {
   updatedAt       DateTime   @updatedAt
   userId          Int
   description     String?    @db.VarChar(255)
-  user            User       @relation(fields: [userId], references: [id])
+  user            User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   questions       Question[]
   reports         Report[]
 }
@@ -47,6 +47,8 @@ model Question {
   type           QuestionType @relation(fields: [questionTypeId], references: [id], onDelete: Cascade, map: "questionType___fk")
   quiz           Quiz?        @relation(fields: [quizId], references: [id])
   answers        Answer[]
+
+  @@index([questionTypeId], map: "question_questiontypeid_index")
 }
 
 model Answer {
@@ -77,6 +79,7 @@ model Player {
   score         Int            @default(0)
   reportId      Int
   email         String?        @db.VarChar(255)
+  avatar        String?        @db.VarChar(255)
   report        Report         @relation(fields: [reportId], references: [id])
   playerAnswers PlayerAnswer[]
 }
