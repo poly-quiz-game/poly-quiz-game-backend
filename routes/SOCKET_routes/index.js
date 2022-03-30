@@ -230,6 +230,7 @@ io.on('connection', socket => {
             });
             player.name = response.payload.name;
             player.email = response.payload.email;
+            player.avatar = response.payload.picture;
           } catch (error) {
             console.log(error);
             socket.emit('no-game-found'); //No game found
@@ -527,6 +528,7 @@ io.on('connection', socket => {
     const reportPlayers = playersInGame.map(player => ({
       name: player.name,
       email: player.email,
+      avatar: player.avatar,
       score: player.score,
       answers: player.answers.map(a => ({ answer: a.answer, time: a.time })),
     }));
@@ -565,11 +567,12 @@ io.on('connection', socket => {
         },
       },
     });
-    const playerData = reportPlayers.map(({ name, email, score, answers }) =>
+    const playerData = reportPlayers.map(({ name, email, avatar, score, answers }) =>
       prisma.player.create({
         data: {
           name,
           email,
+          avatar,
           score,
           reportId: createReport.id,
           playerAnswers: {
