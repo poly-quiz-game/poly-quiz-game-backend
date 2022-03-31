@@ -41,6 +41,7 @@ init.get(
         include: {
           reportQuestions: true,
           players: true,
+          quiz: true,
         },
       });
       const total = await prisma.report.count(query);
