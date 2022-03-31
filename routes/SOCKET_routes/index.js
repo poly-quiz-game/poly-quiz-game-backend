@@ -74,7 +74,7 @@ io.on('connection', socket => {
   console.log('ON');
   //When host connects for the first time
   socket.on('host-create-lobby', async data => {
-    console.log('HOST CREATE LOBBY');
+    console.log('HOST CREATE LOBBY', data);
     if (!data.id) return;
     try {
       const quiz = await prisma.quiz.findUnique({
@@ -94,7 +94,9 @@ io.on('connection', socket => {
       if (quiz) {
         const gamePin = Math.floor(Math.random() * 90000) + 10000; //new pin for game
         const game = {
+          time: Date.now(),
           hostSocketId: socket.id,
+          host: data.user,
           pin: gamePin,
           quizId: quiz.id,
           isLive: false,
@@ -115,7 +117,6 @@ io.on('connection', socket => {
           hostSocketId: socket.id,
         });
         const allGames = games.getAllGames();
-        io.emit('game-playing', allGames.length);
       } else {
         socket.emit('no-quiz-found');
       }
@@ -342,8 +343,6 @@ io.on('connection', socket => {
 
         io.to(game.pin).emit('host-disconnected'); //Send player back to 'join' screen
 
-        const allGames = games.getAllGames();
-        io.emit('game-playing', allGames.length);
         socket.leave(game.pin); //Socket is leaving room
       }
     } else {
@@ -364,6 +363,28 @@ io.on('connection', socket => {
           io.to(player.hostSocketId).emit('lobby-players', playersInGame); // number of players in game
           socket.leave(pin); //Player is leaving the room
         }
+      }
+    }
+  });
+
+  // admin stop game
+  socket.on('admin-stop-game', pin => {
+    const game = games.getGameByPin(Number(pin)); //Get the game based on socket.id
+    if (game) {
+      console.log('ADMIN STOP GAME');
+      if (game) {
+        games.removeGame(socket.id); //Remove the game from games class
+        console.log('Game ended with pin:', game.pin);
+
+        const playersInGame = players.getPlayers(game.hostSocketId); //Getting all players in the game
+
+        //For each player in the game
+        for (let i = 0; i < playersInGame.length; i++) {
+          players.removePlayer(playersInGame[i].playerSocketId); //Removing each player from player class
+        }
+
+        io.to(game.pin).emit('game-stoped'); //Send player back to 'join' screen
+        socket.leave(game.pin); //Socket is leaving room
       }
     }
   });
@@ -470,24 +491,28 @@ io.on('connection', socket => {
 
   socket.on('time-up', async function () {
     console.log('TIME UP');
-    const game = games.getGame(socket.id);
-    game.isQuestionLive = false;
-    const playersInGame = players.getPlayers(game.hostSocketId);
-    const { questionIndex, quizData } = game;
-    const { questions } = quizData;
-    const question = questions[questionIndex];
+    try {
+      const game = games.getGame(socket.id);
+      game.isQuestionLive = false;
+      const playersInGame = players.getPlayers(game.hostSocketId);
+      const { questionIndex, quizData } = game;
+      const { questions } = quizData;
+      const question = questions[questionIndex];
 
-    playersInGame.forEach(player => {
-      if (!player.answers[questionIndex]) {
-        player.answers.push({ answer: '', time: 0 });
-      }
-      const isCorrect = player.answers[questionIndex].answer
-        ? checkIsCorrectAnswer(player.answers[questionIndex].answer, question)
-        : false;
-      player.answers[questionIndex].isCorrect = isCorrect;
-      io.to(player.playerSocketId).emit('question-over', isCorrect); //Tell everyone that question is over
-    });
-    io.to(game.hostSocketId).emit('question-over', playersInGame); //Tell everyone that question is over
+      playersInGame.forEach(player => {
+        if (!player.answers[questionIndex]) {
+          player.answers.push({ answer: '', time: 0 });
+        }
+        const isCorrect = player.answers[questionIndex].answer
+          ? checkIsCorrectAnswer(player.answers[questionIndex].answer, question)
+          : false;
+        player.answers[questionIndex].isCorrect = isCorrect;
+        io.to(player.playerSocketId).emit('question-over', isCorrect); //Tell everyone that question is over
+      });
+      io.to(game.hostSocketId).emit('question-over', playersInGame); //Tell everyone that question is over
+    } catch (error) {
+      console.log(error);
+    }
   });
 
   socket.on('next-question', async () => {
@@ -568,27 +593,28 @@ io.on('connection', socket => {
         },
       },
     });
-    const playerData = reportPlayers.map(({ name, email, avatar, score, answers }) =>
-      prisma.player.create({
-        data: {
-          name,
-          email,
-          avatar,
-          score,
-          reportId: createReport.id,
-          playerAnswers: {
-            create: answers.map(({ answer, time }, index) => ({
-              answer,
-              time,
-              reportQuestion: {
-                connect: {
-                  id: createReport.reportQuestions[index].id,
+    const playerData = reportPlayers.map(
+      ({ name, email, avatar, score, answers }) =>
+        prisma.player.create({
+          data: {
+            name,
+            email,
+            avatar,
+            score,
+            reportId: createReport.id,
+            playerAnswers: {
+              create: answers.map(({ answer, time }, index) => ({
+                answer,
+                time,
+                reportQuestion: {
+                  connect: {
+                    id: createReport.reportQuestions[index].id,
+                  },
                 },
-              },
-            })),
+              })),
+            },
           },
-        },
-      })
+        })
     );
     try {
       await Promise.all(playerData);
@@ -680,6 +706,18 @@ io.on('connection', socket => {
     console.log('GET GAME PLAYING');
     const allGames = games.getAllGames();
     socket.emit('game-playing', allGames.length);
+  });
+
+  socket.on('admin-get-game-playing', () => {
+    console.log('GET GAME PLAYING');
+    const allGames = games.getAllGames();
+    socket.emit(
+      'admin-game-playing',
+      allGames.map(game => ({
+        ...game,
+        players: players.getPlayers(game.hostSocketId),
+      }))
+    );
   });
 });
 
