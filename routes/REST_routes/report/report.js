@@ -5,8 +5,6 @@ const { PrismaClient } = require('@prisma/client');
 
 const prisma = new PrismaClient();
 
-// require('../../../database/model/reports');
-
 init.get(
   '/',
   passport.authenticate('jwt', { session: false }),

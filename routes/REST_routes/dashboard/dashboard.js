@@ -96,44 +96,25 @@ init.get('/question-count-by-type/:id', async function (req, res) {
   }
 });
 
-init.get(
-  '/detail-quiz/:id',
-  passport.authenticate('jwt', { session: false }),
-  async function (req, res) {
-    try {
-      if (req.user.role !== 'admin') {
-        res.status(403).json({ error: 'fobiddem' });
-        return;
-      }
-      const quiz = await prisma.quiz.findUnique({
-        where: {
-          id: Number(req.params.id),
-        },
-        include: {
-          questions: {
-            include: {
-              answers: true,
-              type: true,
-            },
-          },
-          reports: {
-            include: {
-              reportQuestions: true,
-              players: {
-                include: {
-                  playerAnswers: true,
-                },
-              },
-            },
+init.get('/detail-quiz/:id', async function (req, res) {
+  try {
+    const quiz = await prisma.quiz.findUnique({
+      where: {
+        id: Number(req.params.id),
+      },
+      include: {
+        questions: {
+          include: {
+            answers: true,
           },
         },
-      });
-      res.json(quiz);
-    } catch (error) {
-      res.status(400).json(error);
-    }
+      },
+    });
+    res.json(quiz);
+  } catch (error) {
+    res.status(400).json(error);
   }
-);
+});
 
 init.get(
   '/user/top/5',
