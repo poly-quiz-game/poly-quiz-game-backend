@@ -206,4 +206,49 @@ init.get(
   }
 );
 
+init.get('/list-report-quiz/:id', async function (req, res) {
+  try {
+    const report = await prisma.report.findMany({
+      where: {
+        quizId: Number(req.params.id),
+      },
+      include: {
+        players: true,
+        reportQuestions: {
+          include: {
+            playerAnswer: true,
+            reportQuestionAnswers: true,
+          },
+        },
+      },
+    });
+    res.json(report);
+  } catch (error) {
+    console.log(error);
+    res.status(400).json(error);
+  }
+});
+
+init.get('/detail-report-quiz/:id', async function (req, res) {
+  try {
+    const reports = await prisma.report.findUnique({
+      where: {
+        id: Number(req.params.id),
+      },
+      include: {
+        players: true,
+        reportQuestions: {
+          include: {
+            playerAnswer: true,
+            reportQuestionAnswers: true,
+          },
+        },
+      },
+    });
+    res.json(reports);
+  } catch (error) {
+    console.log(error);
+    res.status(400).json(error);
+  }
+});
 module.exports = init;
