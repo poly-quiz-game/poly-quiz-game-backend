@@ -57,7 +57,6 @@ passport.use(
       const users = await prisma.user.findMany({
         where: { email: jwt_payload.email },
       });
-      console.log('users', users);
       if (users[0]) {
         return done(null, users[0]);
       } else {
@@ -106,19 +105,22 @@ authRouter.post('/google-login', async function (req, res) {
       audience: process.env.O2AUTH_GOOGLE_CLIENT_ID,
       scopes: ['https://www.googleapis.com/auth/cloud-platform'],
     });
-    console.log(response)
+    console.log(response);
     const { email_verified, email } = response.payload;
     if (email_verified) {
       let user = await prisma.user.findUnique({ where: { email } });
       if (!user) {
-        user = await prisma.user.create({ data: { email } });        
+        user = await prisma.user.create({ data: { email } });
       }
       if (user.isActive === false) {
-        return res.status(400).json({ error: "Your account is locked" });
+        return res.status(400).json({ error: 'Your account is locked' });
       }
       user.picture = response.payload.picture;
       if (!user.name) {
-        await prisma.user.update({where: {id: user.id}, data: {name: response.payload.name}})
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { name: response.payload.name },
+        });
       }
       const token = jwt.sign(
         { id: user.id, email: user.email },
