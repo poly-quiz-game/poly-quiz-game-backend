@@ -7,6 +7,8 @@ class Games {
     hostSocketId,
     pin,
     quizId,
+    host,
+    time,
     isLive = false,
     isLocked = false,
     isQuestionLive = false,
@@ -18,6 +20,8 @@ class Games {
       hostSocketId,
       pin,
       quizId,
+      host,
+      time,
       isLive,
       isLocked,
       isQuestionLive,
@@ -25,6 +29,7 @@ class Games {
       questionsLength,
       quizData,
     };
+    console.log('addGame', game);
     this.games.push(game);
     return game;
   };

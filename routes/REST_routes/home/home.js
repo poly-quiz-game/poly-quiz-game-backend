@@ -67,11 +67,11 @@ init.get(
 init.get('/top-master', async function (req, res) {
   try {
     const topMaster = await prisma.$queryRaw`
-        select ROW_NUMBER() OVER (ORDER BY sum(score) DESC ) AS key, count(id) as total, sum(score) as score, email, name from "Player"
+        select ROW_NUMBER() OVER (ORDER BY sum(score) DESC ) AS key, count(id) as total, sum(score) as score, email, name, avatar from "Player"
         where email notnull
-        group by email, name
+        group by email, name, avatar
         limit 5`;
-      res.json({
+      await res.json({
         topMaster,
       });
   } catch (error) {
