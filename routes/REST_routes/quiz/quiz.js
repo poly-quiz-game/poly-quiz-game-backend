@@ -195,15 +195,31 @@ init.put(
         where: {
           id: Number(req.params.id),
         },
+        include: {
+          questions: {
+            include: {
+              answers: true,
+              type: true,
+            },
+          },
+        },
       });
       if (!quiz || quiz?.userId !== Number(req.user.id)) {
         res.status(404).json({ error: 'Not found' });
         return;
       }
 
+      const oldQuestions = quiz.questions;
+
       const {
         quiz: { questions, ...quizData },
       } = req.body;
+
+      const questionToDelete = oldQuestions.filter(
+        oldQuestion =>
+          !questions.find(newQuestion => newQuestion.id === oldQuestion.id)
+      );
+
       const updateQuiz = await prisma.quiz.update({
         where: {
           id: Number(req.params.id),
@@ -214,47 +230,58 @@ init.put(
         },
       });
 
-      await Promise.all(
-        questions.map(async question => {
-          const { type, ...questionData } = question;
-          if (question.id) {
-            await prisma.question.update({
-              where: {
-                id: Number(question.id),
-              },
-              data: {
-                ...questionData,
-                questionTypeId: type.id,
-                answers: {
-                  update: question.answers.map((answer, i) => ({
-                    where: {
-                      index_questionId: {
-                        questionId: Number(question.id),
-                        index: i,
-                      },
-                    },
-                    data: {
-                      answer,
+      const updateQuestion = questions.map(async question => {
+        const { type, ...questionData } = question;
+        if (question.id) {
+          await prisma.question.update({
+            where: {
+              id: Number(question.id),
+            },
+            data: {
+              ...questionData,
+              questionTypeId: type.id,
+              answers: {
+                update: question.answers.map((answer, i) => ({
+                  where: {
+                    index_questionId: {
+                      questionId: Number(question.id),
                       index: i,
                     },
-                  })),
-                },
+                  },
+                  data: {
+                    answer,
+                    index: i,
+                  },
+                })),
               },
-            });
-          } else {
-            await prisma.question.create({
-              data: {
-                ...questionData,
-                quizId: Number(quiz.id),
-                questionTypeId: type.id,
-                answers: {
-                  create: question.answers.map((a, i) => ({ answer: a, index: i })),
-                },
+            },
+          });
+        } else {
+          await prisma.question.create({
+            data: {
+              ...questionData,
+              quizId: Number(quiz.id),
+              questionTypeId: type.id,
+              answers: {
+                create: question.answers.map((a, i) => ({
+                  answer: a,
+                  index: i,
+                })),
               },
-            });
-          }
-        })
-      );
+            },
+          });
+        }
+      });
+
+      const deleteQuestions = questionToDelete.map(async question => {
+        await prisma.question.delete({
+          where: {
+            id: Number(question.id),
+          },
+        });
+      });
+``
+      await Promise.all([...updateQuestion, ...deleteQuestions]);
 
       res.json(updateQuiz);
     } catch (error) {

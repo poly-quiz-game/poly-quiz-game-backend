@@ -116,7 +116,6 @@ io.on('connection', socket => {
           pin: game.pin,
           hostSocketId: socket.id,
         });
-        const allGames = games.getAllGames();
       } else {
         socket.emit('no-quiz-found');
       }
@@ -282,12 +281,12 @@ io.on('connection', socket => {
 
   // check game
   socket.on('player-check-game', pin => {
-    console.log('PLAYER CHECK GAME');
-    console.log('player-check-game: ', pin);
+    console.log('PLAYER CHECK GAME', pin);
     const game = games.getGameByPin(Number(pin)); //Get the game based on socket.id
     if (!game) {
       return socket.emit('no-game-found');
     }
+    console.log(game)
     socket.emit('game-info', game); // game found
   });
 
