@@ -31,6 +31,7 @@ model Quiz {
   updatedAt       DateTime   @updatedAt
   userId          Int
   description     String?    @db.VarChar(255)
+  isDeleted       Boolean?   @default(false)
   user            User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   questions       Question[]
   reports         Report[]
@@ -45,7 +46,7 @@ model Question {
   question       String       @db.VarChar(255)
   questionTypeId Int
   type           QuestionType @relation(fields: [questionTypeId], references: [id], onDelete: Cascade, map: "questionType___fk")
-  quiz           Quiz?        @relation(fields: [quizId], references: [id])
+  quiz           Quiz?        @relation(fields: [quizId], references: [id], onDelete: Cascade)
   answers        Answer[]
 
   @@index([questionTypeId], map: "question_questiontypeid_index")
@@ -55,7 +56,7 @@ model Answer {
   index      Int
   questionId Int
   answer     String   @db.VarChar(255)
-  question   Question @relation(fields: [questionId], references: [id])
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
 
   @@id([index, questionId])
 }
