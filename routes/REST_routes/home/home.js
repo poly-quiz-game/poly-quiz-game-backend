@@ -38,7 +38,6 @@ init.get(
       const quiz = await prisma.quiz.findUnique({
         where: {
           id: Number(req.params.id),
-          isDeleted: false,
         },
         include: {
           questions: {

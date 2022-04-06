@@ -101,7 +101,6 @@ init.get('/detail-quiz/:id', async function (req, res) {
     const quiz = await prisma.quiz.findUnique({
       where: {
         id: Number(req.params.id),
-        isDeleted: false,
       },
       include: {
         questions: {

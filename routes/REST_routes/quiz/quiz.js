@@ -68,7 +68,6 @@ init.get(
       const quiz = await prisma.quiz.findUnique({
         where: {
           id: Number(req.params.id),
-          isDeleted: false,
         },
         include: {
           questions: {
@@ -95,6 +94,7 @@ init.get(
         res.status(404).json({ error: 'Not found' });
       }
     } catch (error) {
+      console.log(error);
       res.status(400).json(error);
     }
   }
@@ -187,7 +187,6 @@ init.delete(
         message: 'Deleted Successfully',
       });
     } catch (error) {
-      console.log('abc',error);
       res.status(400).json(error);
     }
   }
@@ -287,7 +286,6 @@ init.put(
           },
         });
       });
-``
       await Promise.all([...updateQuestion, ...deleteQuestions]);
 
       res.json(updateQuiz);
