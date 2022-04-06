@@ -28,7 +28,7 @@ const { Players } = require('../../utils/players');
 const players = new Players();
 
 const checkIsCorrectAnswer = (answer, { type, correctAnswer, answers }) => {
-  if (type === 'TYPE_ANSWER') {
+  if (type.name === 'TYPE_ANSWER') {
     return (
       answers[correctAnswer].answer.toLowerCase().trim() ===
       `${answer.toLowerCase().trim()}`
@@ -456,10 +456,10 @@ io.on('connection', socket => {
     let score = 0;
     [...playersInGame]
       .sort((a, b) => b.score - a.score)
-      .forEach((player, index) => {
-        if (player.playerSocketId === socket.id) {
+      .forEach((p, index) => {
+        if (p.playerSocketId === player.playerSocketId) {
           rank = index + 1;
-          score = player.score;
+          score = p.score;
         }
       });
     socket.emit('player-score', { score, rank });
