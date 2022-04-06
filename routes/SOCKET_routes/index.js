@@ -80,6 +80,7 @@ io.on('connection', socket => {
       const quiz = await prisma.quiz.findUnique({
         where: {
           id: Number(data.id),
+          isDeleted: false,
         },
         include: {
           questions: {

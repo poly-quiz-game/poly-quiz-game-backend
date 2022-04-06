@@ -23,7 +23,9 @@ init.get(
         orderBy: {
           [sortField]: sortDirection,
         },
-        where: {},
+        where: {
+          isDeleted: false,
+        },
       };
 
       if (searchField && searchValue) {
@@ -66,6 +68,7 @@ init.get(
       const quiz = await prisma.quiz.findUnique({
         where: {
           id: Number(req.params.id),
+          isDeleted: false,
         },
         include: {
           questions: {
@@ -172,15 +175,19 @@ init.delete(
         },
       });
 
-      await prisma.quiz.delete({
+      await prisma.quiz.update({
         where: {
           id: Number(req.params.id),
+        },
+        data: {
+          isDeleted: true,
         },
       });
       res.json({
         message: 'Deleted Successfully',
       });
     } catch (error) {
+      console.log('abc',error);
       res.status(400).json(error);
     }
   }
