@@ -45,6 +45,7 @@ model Question {
   quizId         Int?
   question       String       @db.VarChar(255)
   questionTypeId Int
+  media          Json?        @db.Json
   type           QuestionType @relation(fields: [questionTypeId], references: [id], onDelete: Cascade, map: "questionType___fk")
   quiz           Quiz?        @relation(fields: [quizId], references: [id], onDelete: Cascade)
   answers        Answer[]
@@ -127,9 +128,24 @@ model QuestionType {
   ReportQuestion ReportQuestion[]
 }
 
+model Media {
+  id        Int        @id @default(autoincrement())
+  type      MediaType?
+  url       String?    @db.VarChar(255)
+  startAt   Int?
+  endAt     Int?
+  createdAt DateTime?  @default(now())
+}
+
 enum QuestionTypeValue {
   SINGLE_CORRECT_ANSWER
   MULTIPLE_CORRECT_ANSWER
   TRUE_FALSE_ANSWER
   TYPE_ANSWER
+}
+
+enum MediaType {
+  IMAGE
+  VIDEO
+  AUDIO
 }

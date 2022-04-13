@@ -134,13 +134,18 @@ init.post(
       const quizData = {
         ...quiz,
         questions: {
-          create: quiz.questions.map(({ type, questionTypeId, ...q }) => ({
-            ...q,
-            questionTypeId,
-            answers: {
-              create: q.answers.map((a, i) => ({ answer: a, index: i })),
-            },
-          })),
+          create: quiz.questions.map(
+            ({ type, media, questionTypeId, ...q }) => {
+              return {
+                ...q,
+                questionTypeId,
+                answers: {
+                  create: q.answers.map((a, i) => ({ answer: a, index: i })),
+                },
+                media: media || undefined,
+              };
+            }
+          ),
         },
       };
       const createQuiz = await prisma.quiz.create({ data: quizData });
@@ -263,11 +268,14 @@ init.put(
             },
           });
         } else {
+          const questionType = await prisma.questionType.findFirst({
+            where: { name: type.name },
+          });
           await prisma.question.create({
             data: {
               ...questionData,
               quizId: Number(quiz.id),
-              questionTypeId: type.id,
+              questionTypeId: questionType.id,
               answers: {
                 create: question.answers.map((a, i) => ({
                   answer: a,
