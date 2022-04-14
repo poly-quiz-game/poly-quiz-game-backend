@@ -221,11 +221,11 @@ init.get(
         },
       });
       // truyền vào đáp án đúng
-      const getReportQuestion = questionCorrect =>
-        report.players.playerAnswers.filter(
-          player => questionCorrect.questionId === player.answer
-        )[0];
-      console.log('getReportQuestion', getReportQuestion);
+      // const getReportQuestion = questionCorrect =>
+      //   report.players.playerAnswers.filter(
+      //     player => questionCorrect.questionId === player.answer
+      //   )[0];
+      // console.log('getReportQuestion', getReportQuestion);
       const result = report.reportQuestions.map((question, index) => {
         return {
           id: question.id,
@@ -298,6 +298,13 @@ init.get(
             ...i,
             time: i.playerAnswers[0].time,
             answer: i.playerAnswers[0].answer,
+            answerDetail:
+              i.playerAnswers[0].answer !== '' &&
+              i.playerAnswers[0].answer
+                .split('|')
+                .map(item =>
+                  question.reportQuestionAnswers.find(el => +el.index === +item)
+                ),
             correct:
               i.playerAnswers[0].answer
                 .split('|')
@@ -311,21 +318,28 @@ init.get(
           questionTypeId: question.questionTypeId,
           timeLimit: question.timeLimit,
           image: question.image,
+          reportQuestionAnswers: question.reportQuestionAnswers,
         };
       } else {
+        const playerAnswers = question.report.players.map(i => ({
+          ...i,
+          time: i.playerAnswers[0].time,
+          answer:
+            question.reportQuestionAnswers[+i.playerAnswers[0].answer].answer,
+          answerDetail: question.reportQuestionAnswers.find(
+            el => +el.index === +i.playerAnswers[0].answer
+          ),
+          correct: i.playerAnswers[0].answer === question.correctAnswer,
+        }));
         result = {
-          playerAnswers: question.report.players.map(i => ({
-            ...i,
-            time: i.playerAnswers[0].time,
-            answer:
-              question.reportQuestionAnswers[+i.playerAnswers[0].answer].answer,
-            correct: i.playerAnswers[0].answer === question.correctAnswer,
-          })),
+          playerAnswers: playerAnswers,
           correct: question.reportQuestionAnswers[+question.correctAnswer],
+          noAnswerTotal: playerAnswers.filter(i => i.answer === '')?.length,
           question: question.question,
           questionTypeId: question.questionTypeId,
           timeLimit: question.timeLimit,
           image: question.image,
+          reportQuestionAnswers: question.reportQuestionAnswers,
         };
       }
 

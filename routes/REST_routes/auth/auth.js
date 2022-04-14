@@ -53,7 +53,7 @@ opts.secretOrKey = secret_key;
 passport.use(
   new JwtStrategy(opts, async (jwt_payload, done) => {
     try {
-      console.log('jwt_payload', jwt_payload);
+      // console.log('jwt_payload', jwt_payload);
       const users = await prisma.user.findMany({
         where: { email: jwt_payload.email },
       });
