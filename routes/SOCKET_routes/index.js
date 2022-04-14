@@ -83,6 +83,9 @@ io.on('connection', socket => {
         },
         include: {
           questions: {
+            orderBy: {
+              index: 'asc',
+            },
             include: {
               answers: true,
               type: true,
@@ -90,6 +93,7 @@ io.on('connection', socket => {
           },
         },
       });
+      console.log(111, quiz.questions);
       //A kahoot was found with the id passed in url
       if (quiz) {
         const gamePin = Math.floor(Math.random() * 90000) + 10000; //new pin for game
@@ -286,7 +290,7 @@ io.on('connection', socket => {
     if (!game) {
       return socket.emit('no-game-found');
     }
-    console.log(game)
+    console.log(game);
     socket.emit('game-info', game); // game found
   });
 

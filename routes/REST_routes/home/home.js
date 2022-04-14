@@ -41,6 +41,9 @@ init.get(
         },
         include: {
           questions: {
+            orderBy: {
+              index: 'asc',
+            },
             include: {
               answers: true,
               type: true,

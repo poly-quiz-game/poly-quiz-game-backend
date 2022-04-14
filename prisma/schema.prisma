@@ -46,6 +46,7 @@ model Question {
   question       String       @db.VarChar(255)
   questionTypeId Int
   media          Json?        @db.Json
+  index          Int?
   type           QuestionType @relation(fields: [questionTypeId], references: [id], onDelete: Cascade, map: "questionType___fk")
   quiz           Quiz?        @relation(fields: [quizId], references: [id], onDelete: Cascade)
   answers        Answer[]
@@ -105,6 +106,7 @@ model ReportQuestion {
   reportId              Int
   question              String                 @db.VarChar(255)
   questionTypeId        Int
+  index                 Int?
   type                  QuestionType           @relation(fields: [questionTypeId], references: [id], onDelete: Cascade, map: "reportquestiontype___fk")
   report                Report                 @relation(fields: [reportId], references: [id])
   playerAnswer          PlayerAnswer[]

@@ -5,6 +5,27 @@ const { PrismaClient } = require('@prisma/client');
 
 const prisma = new PrismaClient();
 
+// init.get('/questions', async (req, res) => {
+//   const quizzes = await prisma.quiz.findMany({
+//     include: {
+//       questions: true,
+//     },
+//   });
+//   quizzes.forEach(quiz => {
+//     quiz.questions.forEach(async (question, index) => {
+//       const res = await prisma.question.update({
+//         where: {
+//           id: question.id,
+//         },
+//         data: {
+//           index,
+//         },
+//       });
+//       console.log(res);
+//     });
+//   });
+// });
+
 init.get(
   '/',
   passport.authenticate('jwt', { session: false }),
@@ -42,7 +63,11 @@ init.get(
         take: Number(limit),
 
         include: {
-          questions: true,
+          questions: {
+            orderBy: {
+              index: 'asc',
+            },
+          },
           reports: true,
         },
       });
@@ -71,6 +96,9 @@ init.get(
         },
         include: {
           questions: {
+            orderBy: {
+              index: 'asc',
+            },
             include: {
               answers: true,
               type: true,
@@ -78,7 +106,11 @@ init.get(
           },
           reports: {
             include: {
-              reportQuestions: true,
+              reportQuestions: {
+                orderBy: {
+                  index: 'asc',
+                },
+              },
               players: {
                 include: {
                   playerAnswers: true,
@@ -135,6 +167,7 @@ init.post(
         ...quiz,
         questions: {
           create: quiz.questions.map(
+            // eslint-disable-next-line no-unused-vars
             ({ type, media, questionTypeId, ...q }) => {
               return {
                 ...q,
