@@ -155,8 +155,9 @@ init.get(
       });
       const getReportQuestion = i =>
         player.report.reportQuestions.filter(q => i.questionId === q.id)[0];
-      const result = player.playerAnswers.map(i => {
+      const result = player.playerAnswers.map((i, index) => {
         return {
+          id: index,
           type: getTypeQuestion(+getReportQuestion(i).questionTypeId),
           time: i.time,
           status:
@@ -187,7 +188,6 @@ init.get(
   '/:id/questions',
   passport.authenticate('jwt', { session: false }),
   async function (req, res) {
-    console.log('ok---', req.user.id);
     try {
       // const {
       //   offset = 0,
@@ -202,6 +202,7 @@ init.get(
         where: {},
       };
       query.where.id = { equals: Number(req.params.id) };
+
       const report = await prisma.report.findUnique({
         where: {
           id: Number(req.params.id),
@@ -219,7 +220,129 @@ init.get(
           },
         },
       });
-      const result = report && report?.reportQuestions;
+      // truyền vào đáp án đúng
+      // const getReportQuestion = questionCorrect =>
+      //   report.players.playerAnswers.filter(
+      //     player => questionCorrect.questionId === player.answer
+      //   )[0];
+      // console.log('getReportQuestion', getReportQuestion);
+      const result = report.reportQuestions.map((question, index) => {
+        return {
+          id: question.id,
+          type: getTypeQuestion(+question.questionTypeId),
+          question: question.question,
+          correct: report.players
+            .map(player => {
+              // lay ra cau hoi trung voi cau tra loi cua user
+              const answer = player.playerAnswers.find(
+                a => a.questionId === question.id
+              );
+              // neu cau tra loi 1 dap an thi so sanh chuoi
+              // neu cau tra loi nhieu dap an thi sap xep sau do so sanh chuoi
+              return answer.answer.split('|').length > 1
+                ? answer.answer
+                    .split('|')
+                    .sort((a, b) => a > b)
+                    .join('') ===
+                    question.correctAnswer
+                      .split('|')
+                      .sort((a, b) => a > b)
+                      .join('')
+                : answer.answer === question.correctAnswer;
+            })
+            .filter(i => !!i).length,
+          totalReport: report.reportQuestions.length,
+        };
+      });
+      return res.json(result);
+    } catch (error) {
+      console.log(error);
+      res.status(400).json(error);
+    }
+  }
+);
+
+init.get(
+  '/:id/questions/:reportId',
+  passport.authenticate('jwt', { session: false }),
+  async function (req, res) {
+    try {
+      const query = {
+        where: {},
+      };
+      query.where.id = { equals: Number(req.params.reportId) };
+
+      const question = await prisma.reportQuestion.findFirst({
+        ...query,
+        include: {
+          report: {
+            include: {
+              players: {
+                include: {
+                  playerAnswers: {
+                    where: {
+                      questionId: Number(req.params.reportId),
+                    },
+                  },
+                },
+              },
+            },
+          },
+          reportQuestionAnswers: true,
+        },
+      });
+      let result = {};
+      if (question.questionTypeId === 2) {
+        result = {
+          playerAnswers: question.report.players.map(i => ({
+            ...i,
+            time: i.playerAnswers[0].time,
+            answer: i.playerAnswers[0].answer,
+            answerDetail:
+              i.playerAnswers[0].answer !== '' &&
+              i.playerAnswers[0].answer
+                .split('|')
+                .map(item =>
+                  question.reportQuestionAnswers.find(el => +el.index === +item)
+                ),
+            correct:
+              i.playerAnswers[0].answer
+                .split('|')
+                .sort((a, b) => a > b)
+                .join('|') === question.correctAnswer,
+          })),
+          correct: question.correctAnswer
+            .split('|')
+            .map(i => question.reportQuestionAnswers[i]),
+          question: question.question,
+          questionTypeId: question.questionTypeId,
+          timeLimit: question.timeLimit,
+          image: question.image,
+          reportQuestionAnswers: question.reportQuestionAnswers,
+        };
+      } else {
+        const playerAnswers = question.report.players.map(i => ({
+          ...i,
+          time: i.playerAnswers[0].time,
+          answer:
+            question.reportQuestionAnswers[+i.playerAnswers[0].answer].answer,
+          answerDetail: question.reportQuestionAnswers.find(
+            el => +el.index === +i.playerAnswers[0].answer
+          ),
+          correct: i.playerAnswers[0].answer === question.correctAnswer,
+        }));
+        result = {
+          playerAnswers: playerAnswers,
+          correct: question.reportQuestionAnswers[+question.correctAnswer],
+          noAnswerTotal: playerAnswers.filter(i => i.answer === '')?.length,
+          question: question.question,
+          questionTypeId: question.questionTypeId,
+          timeLimit: question.timeLimit,
+          image: question.image,
+          reportQuestionAnswers: question.reportQuestionAnswers,
+        };
+      }
+
       return res.json(result);
     } catch (error) {
       console.log(error);
