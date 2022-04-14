@@ -5,6 +5,27 @@ const { PrismaClient } = require('@prisma/client');
 
 const prisma = new PrismaClient();
 
+// init.get('/questions', async (req, res) => {
+//   const quizzes = await prisma.quiz.findMany({
+//     include: {
+//       questions: true,
+//     },
+//   });
+//   quizzes.forEach(quiz => {
+//     quiz.questions.forEach(async (question, index) => {
+//       const res = await prisma.question.update({
+//         where: {
+//           id: question.id,
+//         },
+//         data: {
+//           index,
+//         },
+//       });
+//       console.log(res);
+//     });
+//   });
+// });
+
 init.get(
   '/',
   passport.authenticate('jwt', { session: false }),
@@ -23,7 +44,9 @@ init.get(
         orderBy: {
           [sortField]: sortDirection,
         },
-        where: {},
+        where: {
+          isDeleted: false,
+        },
       };
 
       if (searchField && searchValue) {
@@ -40,7 +63,11 @@ init.get(
         take: Number(limit),
 
         include: {
-          questions: true,
+          questions: {
+            orderBy: {
+              index: 'asc',
+            },
+          },
           reports: true,
         },
       });
@@ -69,6 +96,9 @@ init.get(
         },
         include: {
           questions: {
+            orderBy: {
+              index: 'asc',
+            },
             include: {
               answers: true,
               type: true,
@@ -76,7 +106,11 @@ init.get(
           },
           reports: {
             include: {
-              reportQuestions: true,
+              reportQuestions: {
+                orderBy: {
+                  index: 'asc',
+                },
+              },
               players: {
                 include: {
                   playerAnswers: true,
@@ -92,6 +126,7 @@ init.get(
         res.status(404).json({ error: 'Not found' });
       }
     } catch (error) {
+      console.log(error);
       res.status(400).json(error);
     }
   }
@@ -131,13 +166,19 @@ init.post(
       const quizData = {
         ...quiz,
         questions: {
-          create: quiz.questions.map(({ type, questionTypeId, ...q }) => ({
-            ...q,
-            questionTypeId,
-            answers: {
-              create: q.answers.map((a, i) => ({ answer: a, index: i })),
-            },
-          })),
+          create: quiz.questions.map(
+            // eslint-disable-next-line no-unused-vars
+            ({ type, media, questionTypeId, ...q }) => {
+              return {
+                ...q,
+                questionTypeId,
+                answers: {
+                  create: q.answers.map((a, i) => ({ answer: a, index: i })),
+                },
+                media: media || undefined,
+              };
+            }
+          ),
         },
       };
       const createQuiz = await prisma.quiz.create({ data: quizData });
@@ -172,9 +213,12 @@ init.delete(
         },
       });
 
-      await prisma.quiz.delete({
+      await prisma.quiz.update({
         where: {
           id: Number(req.params.id),
+        },
+        data: {
+          isDeleted: true,
         },
       });
       res.json({
@@ -195,15 +239,31 @@ init.put(
         where: {
           id: Number(req.params.id),
         },
+        include: {
+          questions: {
+            include: {
+              answers: true,
+              type: true,
+            },
+          },
+        },
       });
       if (!quiz || quiz?.userId !== Number(req.user.id)) {
         res.status(404).json({ error: 'Not found' });
         return;
       }
 
+      const oldQuestions = quiz.questions;
+
       const {
         quiz: { questions, ...quizData },
       } = req.body;
+
+      const questionToDelete = oldQuestions.filter(
+        oldQuestion =>
+          !questions.find(newQuestion => newQuestion.id === oldQuestion.id)
+      );
+
       const updateQuiz = await prisma.quiz.update({
         where: {
           id: Number(req.params.id),
@@ -214,47 +274,60 @@ init.put(
         },
       });
 
-      await Promise.all(
-        questions.map(async question => {
-          const { type, ...questionData } = question;
-          if (question.id) {
-            await prisma.question.update({
-              where: {
-                id: Number(question.id),
-              },
-              data: {
-                ...questionData,
-                questionTypeId: type.id,
-                answers: {
-                  update: question.answers.map((answer, i) => ({
-                    where: {
-                      index_questionId: {
-                        questionId: Number(question.id),
-                        index: i,
-                      },
-                    },
-                    data: {
-                      answer,
+      const updateQuestion = questions.map(async question => {
+        const { type, ...questionData } = question;
+        if (question.id) {
+          await prisma.question.update({
+            where: {
+              id: Number(question.id),
+            },
+            data: {
+              ...questionData,
+              questionTypeId: type.id,
+              answers: {
+                update: question.answers.map((answer, i) => ({
+                  where: {
+                    index_questionId: {
+                      questionId: Number(question.id),
                       index: i,
                     },
-                  })),
-                },
+                  },
+                  data: {
+                    answer,
+                    index: i,
+                  },
+                })),
               },
-            });
-          } else {
-            await prisma.question.create({
-              data: {
-                ...questionData,
-                quizId: Number(quiz.id),
-                questionTypeId: type.id,
-                answers: {
-                  create: question.answers.map((a, i) => ({ answer: a, index: i })),
-                },
+            },
+          });
+        } else {
+          const questionType = await prisma.questionType.findFirst({
+            where: { name: type.name },
+          });
+          await prisma.question.create({
+            data: {
+              ...questionData,
+              quizId: Number(quiz.id),
+              questionTypeId: questionType.id,
+              answers: {
+                create: question.answers.map((a, i) => ({
+                  answer: a,
+                  index: i,
+                })),
               },
-            });
-          }
-        })
-      );
+            },
+          });
+        }
+      });
+
+      const deleteQuestions = questionToDelete.map(async question => {
+        await prisma.question.delete({
+          where: {
+            id: Number(question.id),
+          },
+        });
+      });
+      await Promise.all([...updateQuestion, ...deleteQuestions]);
 
       res.json(updateQuiz);
     } catch (error) {

@@ -55,7 +55,6 @@ init.put('/:id', async function (req, res) {
         isActive,
       },
     });
-    console.log(questionType);
     if (!questionType) {
       res.status(404).json({
         message: 'Question type not found',

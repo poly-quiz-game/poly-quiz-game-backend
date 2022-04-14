@@ -28,7 +28,7 @@ const { Players } = require('../../utils/players');
 const players = new Players();
 
 const checkIsCorrectAnswer = (answer, { type, correctAnswer, answers }) => {
-  if (type === 'TYPE_ANSWER') {
+  if (type.name === 'TYPE_ANSWER') {
     return (
       answers[correctAnswer].answer.toLowerCase().trim() ===
       `${answer.toLowerCase().trim()}`
@@ -83,6 +83,9 @@ io.on('connection', socket => {
         },
         include: {
           questions: {
+            orderBy: {
+              index: 'asc',
+            },
             include: {
               answers: true,
               type: true,
@@ -90,6 +93,7 @@ io.on('connection', socket => {
           },
         },
       });
+      console.log(111, quiz.questions);
       //A kahoot was found with the id passed in url
       if (quiz) {
         const gamePin = Math.floor(Math.random() * 90000) + 10000; //new pin for game
@@ -116,7 +120,6 @@ io.on('connection', socket => {
           pin: game.pin,
           hostSocketId: socket.id,
         });
-        const allGames = games.getAllGames();
       } else {
         socket.emit('no-quiz-found');
       }
@@ -282,12 +285,12 @@ io.on('connection', socket => {
 
   // check game
   socket.on('player-check-game', pin => {
-    console.log('PLAYER CHECK GAME');
-    console.log('player-check-game: ', pin);
+    console.log('PLAYER CHECK GAME', pin);
     const game = games.getGameByPin(Number(pin)); //Get the game based on socket.id
     if (!game) {
       return socket.emit('no-game-found');
     }
+    console.log(game);
     socket.emit('game-info', game); // game found
   });
 
@@ -457,10 +460,10 @@ io.on('connection', socket => {
     let score = 0;
     [...playersInGame]
       .sort((a, b) => b.score - a.score)
-      .forEach((player, index) => {
-        if (player.playerSocketId === socket.id) {
+      .forEach((p, index) => {
+        if (p.playerSocketId === player.playerSocketId) {
           rank = index + 1;
-          score = player.score;
+          score = p.score;
         }
       });
     socket.emit('player-score', { score, rank });

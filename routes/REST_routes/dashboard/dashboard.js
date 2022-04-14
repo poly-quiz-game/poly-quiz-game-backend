@@ -104,6 +104,9 @@ init.get('/detail-quiz/:id', async function (req, res) {
       },
       include: {
         questions: {
+          orderBy: {
+            index: 'asc',
+          },
           include: {
             answers: true,
           },

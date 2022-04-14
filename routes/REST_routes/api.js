@@ -7,7 +7,8 @@ const userRoute = require('./user/user');
 const questionTypeRoute = require('./questionType/questionType');
 const questionTimeRoute = require('./questionTime/questionTime');
 const report = require('./report/report');
-const image = require('./image/image');
+const image = require('./media/image');
+const audio = require('./media/audio');
 const dashboard = require('./dashboard/dashboard');
 const home = require('./home/home');
 
@@ -18,6 +19,7 @@ api.use('/questionType', questionTypeRoute);
 api.use('/questionTime', questionTimeRoute);
 api.use('/report', report);
 api.use('/image', image);
+api.use('/audio', audio);
 api.use('/dashboard', dashboard);
 api.use('/home', home);
 
