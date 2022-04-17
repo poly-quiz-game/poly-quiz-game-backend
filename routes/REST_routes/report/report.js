@@ -317,7 +317,7 @@ init.get(
           question: question.question,
           questionTypeId: question.questionTypeId,
           timeLimit: question.timeLimit,
-          image: question.image,
+          media: question.media,
           reportQuestionAnswers: question.reportQuestionAnswers,
         };
       } else {
@@ -338,7 +338,7 @@ init.get(
           question: question.question,
           questionTypeId: question.questionTypeId,
           timeLimit: question.timeLimit,
-          image: question.image,
+          media: question.media,
           reportQuestionAnswers: question.reportQuestionAnswers,
         };
       }

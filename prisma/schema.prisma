@@ -10,7 +10,7 @@ datasource db {
 model User {
   id        Int      @id @default(autoincrement())
   email     String   @unique
-  name      String?
+  name      String
   role      String   @default("member")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -39,7 +39,6 @@ model Quiz {
 
 model Question {
   id             Int          @id @default(autoincrement())
-  image          String?      @db.VarChar(255)
   correctAnswer  String
   timeLimit      Int
   quizId         Int?
@@ -100,13 +99,13 @@ model PlayerAnswer {
 
 model ReportQuestion {
   id                    Int                    @id @default(autoincrement())
-  image                 String?                @db.VarChar(255)
   correctAnswer         String
   timeLimit             Int
   reportId              Int
   question              String                 @db.VarChar(255)
   questionTypeId        Int
   index                 Int?
+  media                 Json?                  @db.Json
   type                  QuestionType           @relation(fields: [questionTypeId], references: [id], onDelete: Cascade, map: "reportquestiontype___fk")
   report                Report                 @relation(fields: [reportId], references: [id])
   playerAnswer          PlayerAnswer[]
@@ -123,9 +122,9 @@ model ReportQuestionAnswer {
 }
 
 model QuestionType {
-  id             Int                @id(map: "questiontype_pk") @default(autoincrement())
-  name           QuestionTypeValue?
-  isActive       Boolean?           @default(true)
+  id             Int               @id(map: "questiontype_pk") @default(autoincrement())
+  name           QuestionTypeValue
+  isActive       Boolean           @default(true)
   Question       Question[]
   ReportQuestion ReportQuestion[]
 }

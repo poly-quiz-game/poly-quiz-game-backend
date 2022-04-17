@@ -5,7 +5,7 @@ const passport = require('passport');
 const { PrismaClient, Prisma } = require('@prisma/client');
 
 const prisma = new PrismaClient();
-
+// list
 init.get('/', async function (req, res) {
   try {
     const {
@@ -54,6 +54,7 @@ init.get('/', async function (req, res) {
   }
 });
 
+// detail
 init.get('/:id', async function (req, res) {
   try {
     const user = await prisma.user.findUnique({
@@ -97,6 +98,7 @@ init.post('/', body('email').isEmail(), async function (req, res) {
   }
 });
 
+// update
 init.put('/:id', body('email').isEmail(), async function (req, res) {
   const errors = validationResult(req);
   if (!errors.isEmpty() && errors.errors[0].param === 'email') {
