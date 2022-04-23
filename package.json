@@ -4,7 +4,7 @@
   "description": "",
   "main": "server.js",
   "scripts": {
-    "start": "prisma db pull && prisma generate && node ./bin/www",
+    "start": "prisma generate && node ./bin/www",
     "dev": "npx nodemon ./bin/www"
   },
   "author": "",
