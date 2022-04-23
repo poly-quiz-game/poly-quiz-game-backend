@@ -105,14 +105,17 @@ authRouter.post('/google-login', async function (req, res) {
       audience: process.env.O2AUTH_GOOGLE_CLIENT_ID,
       scopes: ['https://www.googleapis.com/auth/cloud-platform'],
     });
-    console.log(response);
-    const { email_verified, email } = response.payload;
+    console.log('response: ', response);
+    const { email_verified, email, name } = response.payload;
     if (email_verified) {
+      console.log('query: ', { where: { email } });
       let user = await prisma.user.findUnique({ where: { email } });
+      console.log('user: ', user);
       if (!user) {
-        user = await prisma.user.create({ data: { email } });
-      }
-      if (user.isActive === false) {
+        user = await prisma.user.create({
+          data: { email, name, role: 'member', isActive: true },
+        });
+      } else if (user.isActive === false) {
         return res.status(400).json({ error: 'Your account is locked' });
       }
       user.picture = response.payload.picture;
@@ -133,6 +136,7 @@ authRouter.post('/google-login', async function (req, res) {
     }
   } catch (error) {
     console.log(error);
+    return res.status(400).json({ error: 'something wrong' });
   }
 });
 
