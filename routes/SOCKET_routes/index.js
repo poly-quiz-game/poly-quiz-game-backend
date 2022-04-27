@@ -458,15 +458,17 @@ io.on('connection', socket => {
     const playersInGame = players.getPlayers(player.hostSocketId); //Getting all players in the game
     let rank = 1;
     let score = 0;
+    let prevScore = 0;
     [...playersInGame]
       .sort((a, b) => b.score - a.score)
       .forEach((p, index) => {
         if (p.playerSocketId === player.playerSocketId) {
           rank = index + 1;
           score = p.score;
+          prevScore = p.prevScore;
         }
       });
-    socket.emit('player-score', { score, rank });
+    socket.emit('player-score', { score, prevScore, rank });
   });
 
   socket.on('get-score-board', () => {
@@ -485,9 +487,12 @@ io.on('connection', socket => {
 
       // const isCorrect = checkIsCorrectAnswer(answerString, question);
       const ratio = calculateScore({ time, timeLimit, answerString, question });
+      console.log('ratio: ', ratio);
       const score = (ratio * (time / (timeLimit / 1000)) * 1000) | 0;
+      console.log('score: ', score);
       const { questionIndex } = game;
       player.answers[questionIndex].time = time;
+      player.prevScore = player.score;
       player.score += score;
     }
   );
