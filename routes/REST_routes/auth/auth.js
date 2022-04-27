@@ -118,6 +118,9 @@ authRouter.post('/google-login', async function (req, res) {
       } else if (user.isActive === false) {
         return res.status(400).json({ error: 'Your account is locked' });
       }
+      // else if (user.isActive === false) {
+      //   return res.status(400).json({ error: 'Your account is locked' });
+      // }
       user.picture = response.payload.picture;
       if (!user.name) {
         await prisma.user.update({
