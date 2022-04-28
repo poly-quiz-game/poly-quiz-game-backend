@@ -128,6 +128,9 @@ authRouter.post('/google-login', async function (req, res) {
           data: { name: response.payload.name },
         });
       }
+      if (user.role === 'member') {
+        return res.status(400).json({ error: 'Your account is locked' });
+      }
       const token = jwt.sign(
         { id: user.id, email: user.email },
         process.env.JWT_SIGNIN_KEY,
